@@ -2455,4 +2455,854 @@ public class LinkedListAsDeque {
         
         // Remove from both ends - O(1)
         System.out.println("Removed first: " + deque.removeFirst());  // 0
-        System.out.println("Removed last: " +
+        System.out.println("Removed last: " + deque.removeLast());    // 6
+        System.out.println("After removes: " + deque);  // [1, 5]
+        
+        System.out.println("\n=== QUEUE OPERATIONS (FIFO) ===");
+        LinkedList<String> queue = new LinkedList<>();
+        
+        // offer (add to tail) - O(1)
+        queue.offer("Task1");
+        queue.offer("Task2");
+        queue.offer("Task3");
+        System.out.println("Queue: " + queue);  // [Task1, Task2, Task3]
+        
+        // peek (view head) - O(1)
+        System.out.println("Peek: " + queue.peek());  // Task1
+        
+        // poll (remove from head) - O(1)
+        System.out.println("Poll: " + queue.poll());  // Task1
+        System.out.println("Poll: " + queue.poll());  // Task2
+        System.out.println("Remaining: " + queue);    // [Task3]
+        
+        System.out.println("\n=== STACK OPERATIONS (LIFO) ===");
+        LinkedList<String> stack = new LinkedList<>();
+        
+        // push (add to head) - O(1)
+        stack.push("A");
+        stack.push("B");
+        stack.push("C");
+        System.out.println("Stack: " + stack);  // [C, B, A]
+        
+        // peek (view head) - O(1)
+        System.out.println("Peek: " + stack.peek());  // C
+        
+        // pop (remove from head) - O(1)
+        System.out.println("Pop: " + stack.pop());  // C
+        System.out.println("Pop: " + stack.pop());  // B
+        System.out.println("Remaining: " + stack);  // [A]
+    }
+}
+```
+
+---
+
+### 💻 Example 3: LinkedList Performance Comparison
+
+```java
+import java.util.*;
+
+public class LinkedListPerformance {
+    public static void main(String[] args) {
+        int n = 100000;
+        
+        System.out.println("=== PERFORMANCE COMPARISON (n=" + n + ") ===\n");
+        
+        // Test 1: Add at end
+        System.out.println("Test 1: Add at end");
+        testAddAtEnd(new ArrayList<>(), n, "ArrayList");
+        testAddAtEnd(new LinkedList<>(), n, "LinkedList");
+        
+        // Test 2: Add at beginning
+        System.out.println("\nTest 2: Add at beginning");
+        testAddAtBeginning(new ArrayList<>(), n, "ArrayList");
+        testAddAtBeginning(new LinkedList<>(), n, "LinkedList");
+        
+        // Test 3: Random access
+        System.out.println("\nTest 3: Random access (get)");
+        testRandomAccess(prepareArrayList(n), n, "ArrayList");
+        testRandomAccess(prepareLinkedList(n), n, "LinkedList");
+        
+        // Test 4: Iterator access
+        System.out.println("\nTest 4: Iterator access");
+        testIteratorAccess(prepareArrayList(n), "ArrayList");
+        testIteratorAccess(prepareLinkedList(n), "LinkedList");
+    }
+    
+    static void testAddAtEnd(List<Integer> list, int n, String name) {
+        long start = System.nanoTime();
+        for (int i = 0; i < n; i++) {
+            list.add(i);
+        }
+        long end = System.nanoTime();
+        System.out.printf("%s: %.2f ms%n", name, (end - start) / 1_000_000.0);
+    }
+    
+    static void testAddAtBeginning(List<Integer> list, int n, String name) {
+        long start = System.nanoTime();
+        for (int i = 0; i < n; i++) {
+            list.add(0, i);  // Add at index 0
+        }
+        long end = System.nanoTime();
+        System.out.printf("%s: %.2f ms%n", name, (end - start) / 1_000_000.0);
+    }
+    
+    static void testRandomAccess(List<Integer> list, int n, String name) {
+        long start = System.nanoTime();
+        for (int i = 0; i < n; i++) {
+            int val = list.get(i % list.size());
+        }
+        long end = System.nanoTime();
+        System.out.printf("%s: %.2f ms%n", name, (end - start) / 1_000_000.0);
+    }
+    
+    static void testIteratorAccess(List<Integer> list, String name) {
+        long start = System.nanoTime();
+        for (Integer val : list) {
+            // Just iterate
+        }
+        long end = System.nanoTime();
+        System.out.printf("%s: %.2f ms%n", name, (end - start) / 1_000_000.0);
+    }
+    
+    static List<Integer> prepareArrayList(int n) {
+        List<Integer> list = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) list.add(i);
+        return list;
+    }
+    
+    static List<Integer> prepareLinkedList(int n) {
+        List<Integer> list = new LinkedList<>();
+        for (int i = 0; i < n; i++) list.add(i);
+        return list;
+    }
+}
+```
+
+**Typical Output:**
+```
+=== PERFORMANCE COMPARISON (n=100000) ===
+
+Test 1: Add at end
+ArrayList: 5.23 ms
+LinkedList: 15.67 ms
+
+Test 2: Add at beginning  
+ArrayList: 1250.45 ms (slow - must shift all elements)
+LinkedList: 8.32 ms (fast - just update head pointer)
+
+Test 3: Random access (get)
+ArrayList: 1.12 ms (O(1) direct access)
+LinkedList: 2450.78 ms (O(n) must traverse)
+
+Test 4: Iterator access
+ArrayList: 2.34 ms
+LinkedList: 3.12 ms (both efficient with iterator)
+```
+
+---
+
+### 📊 ArrayList vs LinkedList - Complete Comparison
+
+| Operation | ArrayList | LinkedList | Winner |
+|-----------|-----------|------------|--------|
+| **get(index)** | O(1) | O(n) | ArrayList |
+| **set(index, e)** | O(1) | O(n) | ArrayList |
+| **add(e)** at end | O(1)* | O(1) | Tie |
+| **add(0, e)** at start | O(n) | O(1) | LinkedList |
+| **add(index, e)** middle | O(n) | O(n) | Tie |
+| **remove(index)** | O(n) | O(n) | Tie |
+| **remove()** first | O(n) | O(1) | LinkedList |
+| **remove()** last | O(n) | O(1) | LinkedList |
+| **Iterator.remove()** | O(n) | O(1) | LinkedList |
+| **contains(e)** | O(n) | O(n) | Tie |
+| **Memory per element** | 4-8 bytes | 40-48 bytes | ArrayList |
+| **Cache locality** | Excellent | Poor | ArrayList |
+
+*Amortized
+
+---
+
+### 🔧 LinkedList Best Practices
+
+#### **1. Use for Queue/Deque Operations**
+
+```java
+// ✅ GOOD: LinkedList excels at queue operations
+Queue<Task> taskQueue = new LinkedList<>();
+taskQueue.offer(new Task("Task1"));  // O(1)
+Task next = taskQueue.poll();         // O(1)
+
+Deque<String> stack = new LinkedList<>();
+stack.push("A");  // O(1)
+String top = stack.pop();  // O(1)
+
+// ❌ BAD: Using ArrayList for frequent head operations
+List<Task> tasks = new ArrayList<>();
+tasks.add(0, new Task("Task1"));  // O(n) - slow!
+Task first = tasks.remove(0);      // O(n) - slow!
+```
+
+#### **2. Avoid Random Access**
+
+```java
+LinkedList<Integer> list = new LinkedList<>();
+// ... populate list ...
+
+// ❌ BAD: Random access is O(n) per call = O(n²) total
+for (int i = 0; i < list.size(); i++) {
+    Integer val = list.get(i);  // Traverses from head each time!
+}
+
+// ✅ GOOD: Use iterator for O(n) traversal
+for (Integer val : list) {
+    // Process val
+}
+
+// ✅ GOOD: Use ListIterator for bidirectional traversal
+ListIterator<Integer> iter = list.listIterator();
+while (iter.hasNext()) {
+    Integer val = iter.next();
+    // Can use iter.previous() to go back
+}
+```
+
+#### **3. Consider ArrayDeque for Queue/Stack**
+
+```java
+// LinkedList works, but ArrayDeque is often better for queue/stack
+
+// ✅ BETTER: ArrayDeque is faster for most queue/stack operations
+Deque<String> deque = new ArrayDeque<>();  // Better performance
+// vs
+Deque<String> deque = new LinkedList<>();   // More memory overhead
+
+// ArrayDeque advantages:
+// - Faster for most operations
+// - Less memory per element
+// - Better cache locality
+// - No node allocation overhead
+
+// LinkedList advantages:
+// - Can store null elements
+// - Implements List interface (indexed access, though slow)
+```
+
+#### **4. Memory Considerations**
+
+```java
+// LinkedList uses significantly more memory
+
+// ArrayList: just the array
+// 1,000 integers ≈ 4KB + small overhead
+
+// LinkedList: node per element
+// 1,000 integers ≈ 48KB (each node ~48 bytes)
+
+// ✅ For large datasets with no queue/deque operations, use ArrayList
+List<DataPoint> bigData = new ArrayList<>(1_000_000);  // ~8MB
+
+// ❌ LinkedList would use ~48MB for same data!
+```
+
+---
+
+### ⚠️ LinkedList Common Pitfalls
+
+#### **Pitfall 1: Using get() in Loops**
+
+```java
+LinkedList<Integer> list = new LinkedList<>();
+// ... add 10,000 elements ...
+
+// ❌ WRONG: O(n²) performance!
+for (int i = 0; i < list.size(); i++) {
+    System.out.println(list.get(i));  // Each get() is O(n)!
+}
+// Time: O(n²) = 10,000 × 5,000 (avg) = 50 million operations
+
+// ✅ CORRECT: O(n) with iterator
+for (Integer num : list) {
+    System.out.println(num);
+}
+// Time: O(n) = 10,000 operations
+```
+
+#### **Pitfall 2: Not Leveraging Deque Operations**
+
+```java
+LinkedList<String> list = new LinkedList<>();
+
+// ❌ BAD: Using List methods (slower for head operations)
+list.add(0, "First");  // Works but misleading - use Deque method
+String first = list.remove(0);  // Works but misleading
+
+// ✅ GOOD: Using Deque methods (shows intent clearly)
+list.addFirst("First");  // Same O(1) but clearer
+String first = list.removeFirst();  // Clearer intent
+```
+
+#### **Pitfall 3: Wrong Collection Choice**
+
+```java
+// Scenario: Need fast random access + some insertions
+
+// ❌ WRONG: Using LinkedList when random access is primary need
+List<Record> records = new LinkedList<>();  // Bad choice
+// Later: records.get(500) is slow!
+
+// ✅ CORRECT: ArrayList is better for random access
+List<Record> records = new ArrayList<>();  // Good choice
+// records.get(500) is O(1)
+
+// Only use LinkedList when:
+// - Frequent insertions/deletions at ends
+// - Queue/Deque operations
+// - Iterator-based access only
+```
+
+---
+
+### 🎯 LinkedList Summary
+
+**Key Takeaways:**
+
+1. **Best for:** Queue/Deque operations, frequent add/remove at ends
+2. **Structure:** Doubly-linked list with prev/next pointers
+3. **Performance:** O(1) for head/tail operations, O(n) for random access
+4. **Memory:** High overhead (~40-48 bytes per element)
+5. **Thread Safety:** NOT thread-safe
+6. **Implements:** Both List and Deque interfaces
+
+**When to use LinkedList:**
+- ✅ Implementing queues (FIFO)
+- ✅ Implementing stacks (LIFO)
+- ✅ Frequent insertions/deletions at beginning or end
+- ✅ Iterator-only access patterns
+- ✅ Need both List and Deque operations
+
+**When NOT to use LinkedList:**
+- ❌ Need fast random access (use ArrayList)
+- ❌ Memory-constrained environment (use ArrayList)
+- ❌ Cache-sensitive performance (use ArrayList)
+- ❌ Most general-purpose scenarios (use ArrayList)
+- ❌ Simple queue/stack (use ArrayDeque - faster!)
+
+**Modern Recommendation:**
+```java
+// For lists: Use ArrayList by default
+List<T> list = new ArrayList<>();
+
+// For queues/stacks: Use ArrayDeque
+Deque<T> deque = new ArrayDeque<>();
+
+// Use LinkedList only when you specifically need:
+// - Both List interface AND frequent head/tail operations
+// - Or when you need to store null elements in a deque
+```
+
+---
+
+<a name="6-vector-and-stack-legacy"></a>
+## 6. Vector & Stack (Legacy)
+
+### 🎯 Vector Overview
+
+**Vector** is a **synchronized, thread-safe** implementation of a dynamic array, introduced in Java 1.0 (before Collections Framework).
+
+**Status:** **LEGACY** - Avoid in new code!
+
+---
+
+### 📊 Vector Characteristics
+
+| Feature | Vector | ArrayList | Recommendation |
+|---------|--------|-----------|----------------|
+| **Thread-Safe** | Yes (synchronized) | No | Use CopyOnWriteArrayList or synchronize externally |
+| **Growth Rate** | 2x (doubles) | 1.5x | Vector wastes more memory |
+| **Performance** | Slower (synchronization overhead) | Faster | ArrayList preferred |
+| **Legacy** | Yes (Java 1.0) | No (Java 1.2) | Use modern collections |
+
+---
+
+### 💻 Example: Vector Basic Operations
+
+```java
+import java.util.*;
+
+public class VectorExample {
+    public static void main(String[] args) {
+        // Vector - legacy synchronized list
+        Vector<String> vector = new Vector<>();
+        
+        // Same methods as ArrayList
+        vector.add("A");
+        vector.add("B");
+        vector.add("C");
+        System.out.println("Vector: " + vector);
+        
+        // Legacy methods (avoid)
+        vector.addElement("D");  // Same as add()
+        System.out.println("After addElement: " + vector);
+        
+        String first = vector.firstElement();  // Same as get(0)
+        String last = vector.lastElement();    // Same as get(size-1)
+        System.out.println("First: " + first + ", Last: " + last);
+        
+        // Enumeration - legacy iterator (avoid)
+        Enumeration<String> e = vector.elements();
+        System.out.print("Via Enumeration: ");
+        while (e.hasMoreElements()) {
+            System.out.print(e.nextElement() + " ");
+        }
+        System.out.println();
+        
+        // Modern approach: Use Collections.synchronizedList instead
+        List<String> syncList = Collections.synchronizedList(new ArrayList<>());
+        syncList.add("X");
+        syncList.add("Y");
+        System.out.println("SynchronizedList: " + syncList);
+    }
+}
+```
+
+**Why avoid Vector:**
+
+```java
+// ❌ BAD: Using Vector
+Vector<String> vector = new Vector<>();  // Synchronized on every operation!
+vector.add("A");  // Acquires lock
+vector.add("B");  // Acquires lock
+vector.add("C");  // Acquires lock
+// Overhead even in single-threaded code!
+
+// ✅ GOOD: Use ArrayList + synchronize where needed
+List<String> list = new ArrayList<>();
+
+// Option 1: Manual synchronization
+synchronized (list) {
+    list.add("A");
+    list.add("B");
+    list.add("C");
+}
+
+// Option 2: Synchronized wrapper (better)
+List<String> syncList = Collections.synchronizedList(new ArrayList<>());
+
+// Option 3: Concurrent collection (best for heavy concurrency)
+List<String> concList = new CopyOnWriteArrayList<>();
+```
+
+---
+
+### 🎯 Stack Overview
+
+**Stack** is a **LIFO (Last-In-First-Out)** collection that extends Vector.
+
+**Status:** **LEGACY** - Use Deque instead!
+
+---
+
+### 💻 Example: Stack vs Deque
+
+```java
+import java.util.*;
+
+public class StackVsDeque {
+    public static void main(String[] args) {
+        System.out.println("=== LEGACY STACK (AVOID) ===");
+        Stack<String> stack = new Stack<>();
+        
+        // Push elements
+        stack.push("A");
+        stack.push("B");
+        stack.push("C");
+        System.out.println("Stack: " + stack);  // [A, B, C]
+        
+        // Peek (view top without removing)
+        System.out.println("Peek: " + stack.peek());  // C
+        
+        // Pop (remove from top)
+        System.out.println("Pop: " + stack.pop());  // C
+        System.out.println("Pop: " + stack.pop());  // B
+        System.out.println("Remaining: " + stack);  // [A]
+        
+        // Check if empty
+        System.out.println("Empty: " + stack.empty());  // false
+        
+        // Search (returns distance from top, 1-based!)
+        stack.push("B");
+        stack.push("C");
+        System.out.println("Search C: " + stack.search("C"));  // 1 (top)
+        System.out.println("Search B: " + stack.search("B"));  // 2
+        System.out.println("Search A: " + stack.search("A"));  // 3
+        System.out.println("Search Z: " + stack.search("Z"));  // -1 (not found)
+        
+        System.out.println("\n=== MODERN DEQUE (PREFERRED) ===");
+        Deque<String> deque = new ArrayDeque<>();
+        
+        // Same operations, clearer names
+        deque.push("A");
+        deque.push("B");
+        deque.push("C");
+        System.out.println("Deque: " + deque);  // [C, B, A] (prints in stack order)
+        
+        System.out.println("Peek: " + deque.peek());     // C
+        System.out.println("Pop: " + deque.pop());       // C
+        System.out.println("Remaining: " + deque);       // [B, A]
+        System.out.println("Empty: " + deque.isEmpty()); // false
+    }
+}
+```
+
+**Why avoid Stack:**
+
+```java
+// ❌ BAD: Using Stack (extends Vector = synchronized overhead)
+Stack<Integer> stack = new Stack<>();
+stack.push(1);
+stack.push(2);
+int top = stack.pop();
+
+// ✅ GOOD: Use ArrayDeque (faster, no synchronization overhead)
+Deque<Integer> stack = new ArrayDeque<>();
+stack.push(1);
+stack.push(2);
+int top = stack.pop();
+
+// Benefits of ArrayDeque:
+// - Faster (no synchronization)
+// - More memory efficient
+// - Clearer API (designed for stack/queue operations)
+// - Not tied to legacy Vector
+```
+
+---
+
+### 🎯 Migration Guide
+
+**From Vector to ArrayList:**
+
+```java
+// Before (Java 1.0 style)
+Vector<String> vector = new Vector<>();
+vector.addElement("A");
+String first = vector.firstElement();
+Enumeration<String> e = vector.elements();
+
+// After (Modern Java)
+List<String> list = new ArrayList<>();
+list.add("A");
+String first = list.get(0);
+Iterator<String> iter = list.iterator();
+
+// If you need thread-safety:
+List<String> syncList = Collections.synchronizedList(new ArrayList<>());
+// Or for heavy concurrent reads:
+List<String> concList = new CopyOnWriteArrayList<>();
+```
+
+**From Stack to ArrayDeque:**
+
+```java
+// Before (Legacy)
+Stack<Task> tasks = new Stack<>();
+tasks.push(task);
+Task next = tasks.pop();
+boolean empty = tasks.empty();
+
+// After (Modern)
+Deque<Task> tasks = new ArrayDeque<>();
+tasks.push(task);
+Task next = tasks.pop();
+boolean empty = tasks.isEmpty();
+```
+
+---
+
+### 🎯 Summary: Vector & Stack
+
+**Key Points:**
+
+1. **Vector and Stack are LEGACY** - from Java 1.0
+2. **Both extend Vector** - synchronized overhead everywhere
+3. **Better alternatives exist** - ArrayList, ArrayDeque, CopyOnWriteArrayList
+4. **Only use if:** Maintaining very old code that requires them
+5. **For new code:** Always use modern alternatives
+
+**Replacement Guide:**
+
+| Legacy | Modern Alternative | When |
+|--------|-------------------|------|
+| **Vector** | ArrayList | Single-threaded |
+| **Vector** | Collections.synchronizedList() | Light concurrency |
+| **Vector** | CopyOnWriteArrayList | Heavy concurrent reads |
+| **Stack** | ArrayDeque | Always (faster, clearer) |
+| **Enumeration** | Iterator | Always (more methods) |
+
+---
+
+<a name="7-copyonwritearraylist-concurrent"></a>
+## 7. CopyOnWriteArrayList (Concurrent)
+
+### 🎯 CopyOnWriteArrayList Overview
+
+**CopyOnWriteArrayList** is a **thread-safe** variant of ArrayList where all mutative operations (add, set, remove) are implemented by making a fresh copy of the underlying array.
+
+**Key Idea:** Writes are expensive, reads are cheap and lock-free.
+
+---
+
+### 📊 Characteristics
+
+| Feature | Value | Explanation |
+|---------|-------|-------------|
+| **Thread-Safe** | Yes | Lock-free reads, synchronized writes |
+| **Read Performance** | O(1), no locking | Lock-free iteration |
+| **Write Performance** | O(n) | Must copy entire array |
+| **Iterator** | Snapshot-based | Never throws ConcurrentModificationException |
+| **Memory** | High during writes | Temporarily doubles memory |
+| **Best For** | Read-heavy workloads | Many reads, few writes |
+
+---
+
+### 💻 Example 1: Basic Usage
+
+```java
+import java.util.*;
+import java.util.concurrent.*;
+
+public class CopyOnWriteArrayListExample {
+    public static void main(String[] args) {
+        // Thread-safe list for concurrent access
+        CopyOnWriteArrayList<String> list = new CopyOnWriteArrayList<>();
+        
+        // Add elements
+        list.add("A");
+        list.add("B");
+        list.add("C");
+        System.out.println("List: " + list);
+        
+        // Safe iteration while other threads modify
+        for (String item : list) {
+            System.out.println("Item: " + item);
+            // Even if another thread modifies list here, this iterator
+            // sees a snapshot and won't throw ConcurrentModificationException
+        }
+        
+        // Atomic operations
+        list.addIfAbsent("D");  // Add only if not present
+        System.out.println("After addIfAbsent: " + list);
+        
+        list.addIfAbsent("A");  // Won't add (already present)
+        System.out.println("After addIfAbsent (A): " + list);
+    }
+}
+```
+
+---
+
+### 💻 Example 2: Concurrent Modification Safety
+
+```java
+import java.util.*;
+import java.util.concurrent.*;
+
+public class ConcurrentModificationDemo {
+    public static void main(String[] args) throws Exception {
+        System.out.println("=== ARRAYLIST (NOT THREAD-SAFE) ===");
+        testArrayList();
+        
+        System.out.println("\n=== COPY ON WRITE ARRAYLIST (THREAD-SAFE) ===");
+        testCopyOnWriteArrayList();
+    }
+    
+    static void testArrayList() throws Exception {
+        List<Integer> list = new ArrayList<>();
+        for (int i = 0; i < 10; i++) list.add(i);
+        
+        // Start thread that modifies list
+        Thread writer = new Thread(() -> {
+            try {
+                Thread.sleep(10);
+                list.add(100);  // Modify while iterating
+            } catch (Exception e) { }
+        });
+        writer.start();
+        
+        try {
+            for (Integer num : list) {
+                Thread.sleep(5);
+                System.out.print(num + " ");
+            }
+        } catch (ConcurrentModificationException e) {
+            System.out.println("\n💥 ConcurrentModificationException!");
+        }
+        writer.join();
+    }
+    
+    static void testCopyOnWriteArrayList() throws Exception {
+        List<Integer> list = new CopyOnWriteArrayList<>();
+        for (int i = 0; i < 10; i++) list.add(i);
+        
+        // Start thread that modifies list
+        Thread writer = new Thread(() -> {
+            try {
+                Thread.sleep(10);
+                list.add(100);  // Modify while iterating - SAFE!
+            } catch (Exception e) { }
+        });
+        writer.start();
+        
+        for (Integer num : list) {
+            Thread.sleep(5);
+            System.out.print(num + " ");  // No exception!
+        }
+        System.out.println("\n✅ No exception - iterator sees snapshot!");
+        
+        System.out.println("Final list: " + list);  // Includes 100
+        writer.join();
+    }
+}
+```
+
+**Output:**
+```
+=== ARRAYLIST (NOT THREAD-SAFE) ===
+0 1 💥 ConcurrentModificationException!
+
+=== COPY ON WRITE ARRAYLIST (THREAD-SAFE) ===
+0 1 2 3 4 5 6 7 8 9 
+✅ No exception - iterator sees snapshot!
+Final list: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 100]
+```
+
+---
+
+### ⚙️ How It Works
+
+```java
+// Simplified internal structure
+public class CopyOnWriteArrayList<E> {
+    private volatile Object[] array;
+    
+    public boolean add(E e) {
+        synchronized (lock) {
+            Object[] elements = getArray();
+            int len = elements.length;
+            
+            // Create new array with space for new element
+            Object[] newElements = Arrays.copyOf(elements, len + 1);
+            newElements[len] = e;
+            
+            // Atomically replace old array with new
+            setArray(newElements);
+            return true;
+        }
+    }
+    
+    public E get(int index) {
+        // No locking! Just read from volatile array
+        return (E) getArray()[index];
+    }
+}
+```
+
+**Key Mechanism:**
+1. **Writes**: Acquire lock → Copy array → Modify copy → Replace reference
+2. **Reads**: No locking - just read from volatile array reference
+3. **Iterators**: Work on snapshot at time of creation
+
+---
+
+### 🎯 When to Use CopyOnWriteArrayList
+
+**✅ Use When:**
+- Read operations vastly outnumber writes (ratio > 100:1)
+- Small to medium-sized lists (< 10,000 elements)
+- Need thread-safe iteration without explicit synchronization
+- Can tolerate stale reads during writes
+
+**❌ Don't Use When:**
+- Frequent writes (every write copies entire array!)
+- Large lists (copying is expensive)
+- Need real-time consistency
+- Memory-constrained environment
+
+**Perfect Use Cases:**
+```java
+// ✅ Event listeners (rarely change, frequently iterated)
+CopyOnWriteArrayList<EventListener> listeners = new CopyOnWriteArrayList<>();
+
+// ✅ Configuration entries (read often, updated rarely)
+CopyOnWriteArrayList<Config> configs = new CopyOnWriteArrayList<>();
+
+// ✅ Observer pattern
+CopyOnWriteArrayList<Observer> observers = new CopyOnWriteArrayList<>();
+```
+
+---
+
+### 📊 Performance Comparison
+
+```java
+import java.util.*;
+import java.util.concurrent.*;
+
+public class CopyOnWritePerformance {
+    public static void main(String[] args) {
+        int reads = 1000000;
+        int writes = 100;
+        
+        System.out.println("=== PERFORMANCE (reads=" + reads + ", writes=" + writes + ") ===\n");
+        
+        // Test synchronized ArrayList
+        List<Integer> syncList = Collections.synchronizedList(new ArrayList<>());
+        testPerformance(syncList, reads, writes, "Synchronized ArrayList");
+        
+        // Test CopyOnWriteArrayList
+        List<Integer> cowList = new CopyOnWriteArrayList<>();
+        testPerformance(cowList, reads, writes, "CopyOnWriteArrayList");
+    }
+    
+    static void testPerformance(List<Integer> list, int reads, int writes, String name) {
+        // Populate
+        for (int i = 0; i < 100; i++) list.add(i);
+        
+        long start = System.nanoTime();
+        
+        // Simulate read-heavy workload
+        for (int i = 0; i < reads; i++) {
+            int val = list.get(i % list.size());
+        }
+        
+        // Few writes
+        for (int i = 0; i < writes; i++) {
+            list.add(i);
+        }
+        
+        long end = System.nanoTime();
+        System.out.printf("%s: %.2f ms%n", name, (end - start) / 1_000_000.0);
+    }
+}
+```
+
+**Typical Results:**
+```
+=== PERFORMANCE (reads=1000000, writes=100) ===
+
+Synchronized ArrayList: 45.23 ms (locking overhead on every read)
+CopyOnWriteArrayList: 8.15 ms (lock-free reads!)
+```
+
+---
+
+### 🎯 Summary: CopyOnWriteArrayList
+
+**Key Takeaways:**
+
+1. **Copy-on-write** strategy: writes copy entire array
+2. **Lock-free reads** - extremely fast for read-heavy workloads
+3. **Iterator snapshots** - never throw ConcurrentModificationException
+4. **High write cost** - O(n) for every modification
+5. **Memory
