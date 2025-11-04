@@ -1718,4 +1718,741 @@ public void add(int index, E element) {
 ```java
 List<String> list = new ArrayList<>(Arrays.asList("A", "B", "C", "D"));
 
-// get(int
+// get(int index) - O(1) - Direct array access
+String element = list.get(1);
+System.out.println("Element at index 1: " + element);  // B
+
+// set(int index, E element) - O(1) - Replace element
+String oldValue = list.set(2, "X");
+System.out.println("Old value: " + oldValue);  // C
+System.out.println("After set: " + list);      // [A, B, X, D]
+
+// IndexOutOfBoundsException for invalid index
+try {
+    list.get(10);  // Index 10 doesn't exist
+} catch (IndexOutOfBoundsException e) {
+    System.out.println("Invalid index!");
+}
+```
+
+**Performance:** Both operations are **O(1)** because they use direct array indexing.
+
+#### **3. Remove Operations**
+
+```java
+List<String> list = new ArrayList<>(Arrays.asList("A", "B", "C", "D", "E"));
+
+// remove(int index) - O(n) - must shift elements
+String removed = list.remove(2);  // Remove at index 2
+System.out.println("Removed: " + removed);  // C
+System.out.println("After remove: " + list);  // [A, B, D, E]
+
+// remove(Object o) - O(n) - find then remove
+list.add("B");  // [A, B, D, E, B]
+boolean wasRemoved = list.remove("B");  // Removes first occurrence
+System.out.println("Removed B: " + wasRemoved);  // true
+System.out.println("After remove: " + list);  // [A, D, E, B]
+
+// removeAll(Collection) - O(n*m)
+list.removeAll(Arrays.asList("A", "B"));
+System.out.println("After removeAll: " + list);  // [D, E]
+
+// removeIf(Predicate) - Java 8+ - O(n)
+List<Integer> numbers = new ArrayList<>(Arrays.asList(1, 2, 3, 4, 5, 6));
+numbers.removeIf(n -> n % 2 == 0);  // Remove even numbers
+System.out.println("After removeIf: " + numbers);  // [1, 3, 5]
+
+// clear() - O(n) - sets all elements to null
+list.clear();
+System.out.println("After clear: " + list);  // []
+```
+
+**Internals of remove(int index):**
+```java
+public E remove(int index) {
+    rangeCheck(index);
+    
+    E oldValue = elementData[index];
+    
+    int numMoved = size - index - 1;
+    if (numMoved > 0) {
+        // Shift elements left
+        System.arraycopy(elementData, index+1, 
+                        elementData, index, numMoved);
+    }
+    
+    elementData[--size] = null;  // Let GC do its work
+    return oldValue;
+}
+```
+
+#### **4. Search Operations**
+
+```java
+List<String> list = new ArrayList<>(Arrays.asList("A", "B", "C", "B", "D"));
+
+// indexOf(Object) - O(n) - find first occurrence
+int index = list.indexOf("B");
+System.out.println("First B at: " + index);  // 1
+
+// lastIndexOf(Object) - O(n) - find last occurrence
+index = list.lastIndexOf("B");
+System.out.println("Last B at: " + index);  // 3
+
+// contains(Object) - O(n) - uses indexOf internally
+boolean hasC = list.contains("C");
+System.out.println("Contains C: " + hasC);  // true
+
+boolean hasZ = list.contains("Z");
+System.out.println("Contains Z: " + hasZ);  // false
+
+// containsAll(Collection) - O(n*m)
+boolean hasAll = list.containsAll(Arrays.asList("A", "B", "C"));
+System.out.println("Contains all: " + hasAll);  // true
+```
+
+**Performance Note:** All search operations are O(n) because they must scan the entire array in worst case.
+
+---
+
+### 💻 Example 3: ArrayList Advanced Operations
+
+```java
+import java.util.*;
+import java.util.function.Predicate;
+
+public class ArrayListAdvanced {
+    public static void main(String[] args) {
+        System.out.println("=== SUBLIST OPERATIONS ===");
+        List<Integer> list = new ArrayList<>(Arrays.asList(10, 20, 30, 40, 50, 60));
+        
+        // subList(from, to) - returns view (not copy!)
+        List<Integer> subList = list.subList(1, 4);  // indices 1, 2, 3
+        System.out.println("SubList [1,4): " + subList);  // [20, 30, 40]
+        
+        // Modifications to subList affect original
+        subList.set(0, 25);
+        System.out.println("After modifying subList: " + list);  // [10, 25, 30, 40, 50, 60]
+        
+        // Can remove from subList
+        subList.remove(Integer.valueOf(30));
+        System.out.println("After remove from subList: " + list);  // [10, 25, 40, 50, 60]
+        
+        System.out.println("\n=== CAPACITY MANAGEMENT ===");
+        ArrayList<String> large = new ArrayList<>();
+        
+        // ensureCapacity - optimize before bulk adds
+        large.ensureCapacity(10000);
+        long start = System.nanoTime();
+        for (int i = 0; i < 10000; i++) {
+            large.add("Item" + i);
+        }
+        long end = System.nanoTime();
+        System.out.printf("Time with ensureCapacity: %.2f ms%n", (end - start) / 1_000_000.0);
+        
+        // trimToSize - reduce capacity to size (save memory)
+        ArrayList<String> sparse = new ArrayList<>(1000);
+        sparse.add("A");
+        sparse.add("B");
+        sparse.trimToSize();  // capacity now 2 instead of 1000
+        System.out.println("After trimToSize, size: " + sparse.size());
+        
+        System.out.println("\n=== REPLACEALL & SORT ===");
+        List<String> words = new ArrayList<>(Arrays.asList("hello", "world", "java"));
+        
+        // replaceAll - transform all elements (Java 8+)
+        words.replaceAll(String::toUpperCase);
+        System.out.println("After replaceAll: " + words);  // [HELLO, WORLD, JAVA]
+        
+        // sort - in-place sorting (Java 8+)
+        List<Integer> nums = new ArrayList<>(Arrays.asList(5, 2, 8, 1, 9, 3));
+        nums.sort(Comparator.naturalOrder());
+        System.out.println("After sort ascending: " + nums);  // [1, 2, 3, 5, 8, 9]
+        
+        nums.sort(Comparator.reverseOrder());
+        System.out.println("After sort descending: " + nums);  // [9, 8, 5, 3, 2, 1]
+        
+        // Sort with custom comparator
+        List<String> names = new ArrayList<>(Arrays.asList("Alice", "Bob", "Charlie", "David"));
+        names.sort(Comparator.comparingInt(String::length));
+        System.out.println("Sorted by length: " + names);  // [Bob, Alice, David, Charlie]
+        
+        System.out.println("\n=== FOREACH & REMOVEIF ===");
+        List<Integer> numbers = new ArrayList<>(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+        
+        // forEach with lambda
+        System.out.print("All numbers: ");
+        numbers.forEach(n -> System.out.print(n + " "));
+        System.out.println();
+        
+        // removeIf with predicate
+        numbers.removeIf(n -> n % 3 == 0);  // Remove multiples of 3
+        System.out.println("After removeIf (n%3==0): " + numbers);  // [1, 2, 4, 5, 7, 8, 10]
+        
+        System.out.println("\n=== TOARRAY VARIATIONS ===");
+        List<String> fruits = new ArrayList<>(Arrays.asList("Apple", "Banana", "Cherry"));
+        
+        // toArray() - returns Object[]
+        Object[] arr1 = fruits.toArray();
+        System.out.println("Object[]: " + Arrays.toString(arr1));
+        
+        // toArray(T[]) - returns typed array
+        String[] arr2 = fruits.toArray(new String[0]);
+        System.out.println("String[]: " + Arrays.toString(arr2));
+        
+        // toArray(T[]) with pre-sized array
+        String[] arr3 = fruits.toArray(new String[fruits.size()]);
+        System.out.println("Pre-sized: " + Arrays.toString(arr3));
+        
+        // Java 11+ - toArray(IntFunction)
+        // String[] arr4 = fruits.toArray(String[]::new);
+    }
+}
+```
+
+---
+
+### 💻 Example 4: ArrayList with Custom Objects
+
+```java
+import java.util.*;
+import java.util.stream.Collectors;
+
+class Student implements Comparable<Student> {
+    private int id;
+    private String name;
+    private double gpa;
+    private String major;
+    
+    public Student(int id, String name, double gpa, String major) {
+        this.id = id;
+        this.name = name;
+        this.gpa = gpa;
+        this.major = major;
+    }
+    
+    // Getters
+    public int getId() { return id; }
+    public String getName() { return name; }
+    public double getGpa() { return gpa; }
+    public String getMajor() { return major; }
+    
+    @Override
+    public int compareTo(Student other) {
+        return Integer.compare(this.id, other.id);
+    }
+    
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof Student)) return false;
+        Student s = (Student) obj;
+        return id == s.id;
+    }
+    
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
+    
+    @Override
+    public String toString() {
+        return String.format("Student[id=%d, name=%s, gpa=%.2f, major=%s]", 
+                           id, name, gpa, major);
+    }
+}
+
+public class ArrayListStudentOperations {
+    public static void main(String[] args) {
+        ArrayList<Student> students = new ArrayList<>();
+        
+        // Add students
+        students.add(new Student(101, "Alice", 3.8, "CS"));
+        students.add(new Student(102, "Bob", 3.2, "Math"));
+        students.add(new Student(103, "Charlie", 3.9, "CS"));
+        students.add(new Student(104, "Diana", 3.5, "Physics"));
+        students.add(new Student(105, "Eve", 3.7, "CS"));
+        
+        System.out.println("=== ALL STUDENTS ===");
+        students.forEach(System.out::println);
+        
+        System.out.println("\n=== FILTER BY MAJOR (CS) ===");
+        students.stream()
+                .filter(s -> s.getMajor().equals("CS"))
+                .forEach(System.out::println);
+        
+        System.out.println("\n=== HIGH GPA STUDENTS (>= 3.7) ===");
+        students.stream()
+                .filter(s -> s.getGpa() >= 3.7)
+                .forEach(System.out::println);
+        
+        System.out.println("\n=== FIND STUDENT BY ID ===");
+        int searchId = 103;
+        Optional<Student> found = students.stream()
+                                          .filter(s -> s.getId() == searchId)
+                                          .findFirst();
+        found.ifPresent(s -> System.out.println("Found: " + s));
+        
+        System.out.println("\n=== STATISTICS ===");
+        DoubleSummaryStatistics gpaStats = students.stream()
+                                                   .mapToDouble(Student::getGpa)
+                                                   .summaryStatistics();
+        System.out.println("Average GPA: " + String.format("%.2f", gpaStats.getAverage()));
+        System.out.println("Min GPA: " + String.format("%.2f", gpaStats.getMin()));
+        System.out.println("Max GPA: " + String.format("%.2f", gpaStats.getMax()));
+        
+        System.out.println("\n=== GROUP BY MAJOR ===");
+        Map<String, List<Student>> byMajor = students.stream()
+                                                     .collect(Collectors.groupingBy(Student::getMajor));
+        byMajor.forEach((major, list) -> {
+            System.out.println(major + ": " + list.size() + " students");
+        });
+        
+        System.out.println("\n=== SORT BY GPA (DESCENDING) ===");
+        students.sort(Comparator.comparingDouble(Student::getGpa).reversed());
+        students.forEach(System.out::println);
+        
+        System.out.println("\n=== TOP 3 STUDENTS ===");
+        students.stream()
+                .limit(3)
+                .forEach(System.out::println);
+        
+        System.out.println("\n=== AVERAGE GPA BY MAJOR ===");
+        Map<String, Double> avgGpaByMajor = students.stream()
+            .collect(Collectors.groupingBy(
+                Student::getMajor,
+                Collectors.averagingDouble(Student::getGpa)
+            ));
+        avgGpaByMajor.forEach((major, avg) -> 
+            System.out.println(major + ": " + String.format("%.2f", avg))
+        );
+    }
+}
+```
+
+---
+
+### 📊 ArrayList vs Array - Detailed Comparison
+
+| Feature | Array | ArrayList |
+|---------|-------|-----------|
+| **Size** | Fixed at creation | Dynamic, grows as needed |
+| **Type** | Primitives + Objects | Objects only (use Integer, not int) |
+| **Syntax** | `int[] arr = new int[10]` | `List<Integer> list = new ArrayList<>()` |
+| **Access** | `arr[i]` | `list.get(i)` |
+| **Modify** | `arr[i] = value` | `list.set(i, value)` |
+| **Length** | `arr.length` (field) | `list.size()` (method) |
+| **Performance** | Slightly faster (no method calls) | Very close, negligible difference |
+| **Generics** | Limited support | Full generics support |
+| **Methods** | None (just length) | Rich API (add, remove, contains, etc.) |
+| **Multi-dimensional** | Easy: `int[][]` | Nested: `List<List<Integer>>` |
+| **Memory** | Compact | Slight overhead (object wrapper) |
+| **Null handling** | Can store nulls | Can store nulls |
+| **Type safety** | Can use generics | Built-in with generics |
+| **Initialization** | `{1, 2, 3}` or loop | Arrays.asList() or loop |
+| **Iteration** | for/foreach | for/foreach/iterator/forEach |
+
+**When to use what:**
+
+```java
+// ✅ Use Array when:
+int[] primitives = new int[1000];           // Working with primitives
+int[][] matrix = new int[100][100];          // Multi-dimensional data
+byte[] data = readFile();                    // Low-level data, performance critical
+
+// ✅ Use ArrayList when:
+List<String> names = new ArrayList<>();      // Dynamic sizing needed
+List<Integer> ids = new ArrayList<>();       // Need rich API methods
+List<Student> students = new ArrayList<>();  // Working with objects
+```
+
+---
+
+### 🔧 ArrayList Best Practices
+
+#### **1. Pre-sizing for Known Capacity**
+
+```java
+// ❌ BAD: Default size, multiple resizes
+List<String> bad = new ArrayList<>();
+for (int i = 0; i < 10000; i++) {
+    bad.add("Item" + i);
+}
+// Will resize: 0→10→15→22→33...
+
+// ✅ GOOD: Pre-size if you know capacity
+List<String> good = new ArrayList<>(10000);
+for (int i = 0; i < 10000; i++) {
+    good.add("Item" + i);
+}
+// No resizing needed!
+```
+
+**Performance improvement:** 20-50% faster for bulk adds.
+
+#### **2. Use Specific Type Over Generic Collection**
+
+```java
+// ❌ Less efficient: Extra interface lookup
+Collection<String> col = new ArrayList<>();
+
+// ✅ More efficient: Direct implementation access
+ArrayList<String> list = new ArrayList<>();
+
+// ✅ Best: Program to List interface (balance flexibility and performance)
+List<String> list = new ArrayList<>();
+```
+
+#### **3. Avoid Concurrent Modification**
+
+```java
+List<Integer> list = new ArrayList<>(Arrays.asList(1, 2, 3, 4, 5));
+
+// ❌ BAD: Concurrent modification exception
+for (Integer num : list) {
+    if (num % 2 == 0) {
+        list.remove(num);  // 💥 ConcurrentModificationException!
+    }
+}
+
+// ✅ GOOD: Use Iterator.remove()
+Iterator<Integer> iter = list.iterator();
+while (iter.hasNext()) {
+    Integer num = iter.next();
+    if (num % 2 == 0) {
+        iter.remove();  // ✅ Safe
+    }
+}
+
+// ✅ BETTER: Use removeIf (Java 8+)
+list.removeIf(num -> num % 2 == 0);  // ✅ Safe and clean
+```
+
+#### **4. Bulk Operations are Faster**
+
+```java
+List<String> target = new ArrayList<>();
+
+// ❌ SLOW: Adding one by one
+for (String item : sourceList) {
+    target.add(item);
+}
+
+// ✅ FAST: Bulk add
+target.addAll(sourceList);
+
+// ✅ FASTEST: Constructor
+List<String> target = new ArrayList<>(sourceList);
+```
+
+#### **5. Use trimToSize() for Long-lived Lists**
+
+```java
+// Scenario: Build list, then keep it around
+ArrayList<String> config = new ArrayList<>(1000);
+// ... add only 10 items ...
+config.add("setting1");
+config.add("setting2");
+// ... total 10 items
+
+// Now capacity=1000, size=10 (wasting 990 slots!)
+config.trimToSize();  // ✅ Reduce capacity to 10
+// Saves memory for long-lived objects
+```
+
+#### **6. Consider Array for Fixed-size, Primitive-heavy Data**
+
+```java
+// If you have fixed-size primitive data:
+// ❌ Inefficient: Boxing overhead
+List<Integer> numbers = new ArrayList<>(1000000);
+for (int i = 0; i < 1000000; i++) {
+    numbers.add(i);  // Autoboxing: int → Integer
+}
+
+// ✅ Efficient: No boxing
+int[] numbers = new int[1000000];
+for (int i = 0; i < 1000000; i++) {
+    numbers[i] = i;  // Direct primitive storage
+}
+```
+
+---
+
+### ⚠️ ArrayList Common Pitfalls
+
+#### **Pitfall 1: Modifying While Iterating**
+
+```java
+List<Integer> list = new ArrayList<>(Arrays.asList(1, 2, 3, 4, 5));
+
+// ❌ WRONG: Throws ConcurrentModificationException
+for (Integer num : list) {
+    if (num == 3) {
+        list.remove(num);  // 💥 Error!
+    }
+}
+
+// ✅ CORRECT: Use Iterator or removeIf
+list.removeIf(num -> num == 3);
+```
+
+#### **Pitfall 2: Removing by Index in Loop**
+
+```java
+List<Integer> list = new ArrayList<>(Arrays.asList(1, 2, 2, 3, 4));
+
+// ❌ WRONG: Skips elements after removal
+for (int i = 0; i < list.size(); i++) {
+    if (list.get(i) == 2) {
+        list.remove(i);  // Problem: indices shift!
+    }
+}
+// Result: [1, 2, 3, 4] - only removed first 2!
+
+// ✅ CORRECT: Iterate backwards
+for (int i = list.size() - 1; i >= 0; i--) {
+    if (list.get(i) == 2) {
+        list.remove(i);
+    }
+}
+
+// ✅ BETTER: Use removeIf
+list.removeIf(n -> n == 2);
+```
+
+#### **Pitfall 3: Confusing remove(int) vs remove(Object)**
+
+```java
+List<Integer> list = new ArrayList<>(Arrays.asList(1, 2, 3, 4, 5));
+
+// ❌ WRONG: Removes by index, not value!
+list.remove(2);  // Removes element at index 2 (which is 3)
+System.out.println(list);  // [1, 2, 4, 5]
+
+// ✅ CORRECT: Remove by value
+list.remove(Integer.valueOf(2));  // Removes the value 2
+System.out.println(list);  // [1, 3, 4, 5]
+```
+
+#### **Pitfall 4: Returning subList() Reference**
+
+```java
+public List<String> getSubset(List<String> list) {
+    // ❌ WRONG: Returns view, not copy!
+    return list.subList(0, 3);  // Changes affect original!
+}
+
+// ✅ CORRECT: Return copy
+public List<String> getSubset(List<String> list) {
+    return new ArrayList<>(list.subList(0, 3));
+}
+```
+
+#### **Pitfall 5: Not Pre-sizing Large Lists**
+
+```java
+// ❌ SLOW: Many resize operations
+List<String> large = new ArrayList<>();
+for (int i = 0; i < 1000000; i++) {
+    large.add("Item" + i);
+}
+
+// ✅ FAST: Single allocation
+List<String> large = new ArrayList<>(1000000);
+for (int i = 0; i < 1000000; i++) {
+    large.add("Item" + i);
+}
+```
+
+---
+
+### 🎯 ArrayList Summary
+
+**Key Takeaways:**
+
+1. **Best for:** Random access, frequent reads, iteration
+2. **Growth:** 1.5x capacity increase (efficient memory usage)
+3. **Performance:** O(1) for get/set, O(n) for add/remove at position
+4. **Thread Safety:** NOT thread-safe (use synchronization or CopyOnWriteArrayList)
+5. **Pre-sizing:** Always pre-size if you know capacity
+6. **Iteration:** Use Iterator.remove() or removeIf() for safe modification
+
+**When to use ArrayList:**
+- ✅ Frequent random access by index
+- ✅ Iteration over elements
+- ✅ Unknown final size but grows incrementally
+- ✅ Read-heavy workloads
+- ✅ Simple, straightforward use cases
+
+**When NOT to use ArrayList:**
+- ❌ Frequent insertions/deletions in middle (use LinkedList)
+- ❌ Multi-threaded writes (use CopyOnWriteArrayList or synchronize)
+- ❌ Fixed size with primitives (use arrays)
+- ❌ Queue/Deque operations (use ArrayDeque or LinkedList)
+
+---
+
+<a name="5-linkedlist-complete-mastery"></a>
+## 5. LinkedList - Complete Mastery
+
+### 🎯 LinkedList Overview
+
+**LinkedList** is a **doubly-linked list** implementation that implements both **List** and **Deque** interfaces.
+
+```mermaid
+flowchart LR
+    NULL1[null] --> N1[Node1<br/>prev│data│next]
+    N1 --> N2[Node2<br/>prev│data│next]
+    N2 --> N3[Node3<br/>prev│data│next]
+    N3 --> NULL2[null]
+    
+    N2 -.prev.-> N1
+    N3 -.prev.-> N2
+```
+
+---
+
+### 📊 LinkedList Characteristics
+
+| Feature | Value | Explanation |
+|---------|-------|-------------|
+| **Underlying Structure** | Doubly Linked List | Nodes with prev/next pointers |
+| **Random Access** | O(n) | Must traverse from head/tail |
+| **Add at Ends** | O(1) | Direct head/tail access |
+| **Add at Position** | O(n) | Must traverse + O(1) insertion |
+| **Remove at Ends** | O(1) | Direct head/tail access |
+| **Remove at Position** | O(n) | Must traverse + O(1) removal |
+| **Search** | O(n) | Must traverse list |
+| **Contains** | O(n) | Linear search |
+| **Thread-Safe** | No | Use synchronization or concurrent alternatives |
+| **Null Elements** | Yes | Can store nulls |
+| **Ordered** | Yes | Maintains insertion order |
+| **Indexed** | Yes | 0-based, but slow access |
+| **Memory Overhead** | High | Extra pointers per node (prev, next) |
+| **Best For** | Frequent insert/delete at ends | When you need queue/deque operations |
+
+---
+
+### ⚙️ Internal Structure
+
+```java
+public class LinkedList<E> extends AbstractSequentialList<E>
+        implements List<E>, Deque<E>, Cloneable, java.io.Serializable {
+    
+    transient int size = 0;
+    transient Node<E> first;  // Head pointer
+    transient Node<E> last;   // Tail pointer
+    
+    private static class Node<E> {
+        E item;
+        Node<E> next;
+        Node<E> prev;
+        
+        Node(Node<E> prev, E element, Node<E> next) {
+            this.item = element;
+            this.next = next;
+            this.prev = prev;
+        }
+    }
+}
+```
+
+**Memory Layout:**
+
+```
+Empty LinkedList:
+first → null
+last → null
+size = 0
+
+After adding "A", "B", "C":
+first → [null|A|→] ⇄ [←|B|→] ⇄ [←|C|null] ← last
+size = 3
+
+Each node uses: 3 references (prev, item, next) + object overhead ≈ 40-48 bytes per node
+```
+
+---
+
+### 💻 Example 1: LinkedList as List
+
+```java
+import java.util.*;
+
+public class LinkedListAsList {
+    public static void main(String[] args) {
+        LinkedList<String> list = new LinkedList<>();
+        
+        System.out.println("=== ADD OPERATIONS ===");
+        list.add("A");
+        list.add("B");
+        list.add("C");
+        System.out.println("After adds: " + list);  // [A, B, C]
+        
+        // Add at position - O(n) for traversal + O(1) for insertion
+        list.add(1, "X");
+        System.out.println("After add at index 1: " + list);  // [A, X, B, C]
+        
+        System.out.println("\n=== GET/SET OPERATIONS ===");
+        // get(index) - O(n) - must traverse
+        String element = list.get(2);
+        System.out.println("Element at index 2: " + element);  // B
+        
+        // set(index, element) - O(n)
+        String oldValue = list.set(1, "Y");
+        System.out.println("Old value: " + oldValue);  // X
+        System.out.println("After set: " + list);  // [A, Y, B, C]
+        
+        System.out.println("\n=== REMOVE OPERATIONS ===");
+        // remove(index) - O(n)
+        String removed = list.remove(2);
+        System.out.println("Removed: " + removed);  // B
+        System.out.println("After remove: " + list);  // [A, Y, C]
+        
+        // remove(Object) - O(n)
+        boolean wasRemoved = list.remove("Y");
+        System.out.println("Removed Y: " + wasRemoved);
+        System.out.println("After remove: " + list);  // [A, C]
+        
+        System.out.println("\n=== SEARCH OPERATIONS ===");
+        list.addAll(Arrays.asList("D", "E", "D"));
+        System.out.println("List: " + list);  // [A, C, D, E, D]
+        
+        System.out.println("indexOf D: " + list.indexOf("D"));  // 2
+        System.out.println("lastIndexOf D: " + list.lastIndexOf("D"));  // 4
+        System.out.println("contains C: " + list.contains("C"));  // true
+    }
+}
+```
+
+---
+
+### 💻 Example 2: LinkedList as Deque
+
+LinkedList implements Deque, making it perfect for queue and stack operations:
+
+```java
+import java.util.*;
+
+public class LinkedListAsDeque {
+    public static void main(String[] args) {
+        LinkedList<Integer> deque = new LinkedList<>();
+        
+        System.out.println("=== DEQUE OPERATIONS (BOTH ENDS) ===");
+        
+        // Add at both ends - O(1)
+        deque.addFirst(1);   // [1]
+        deque.addLast(5);    // [1, 5]
+        deque.addFirst(0);   // [0, 1, 5]
+        deque.addLast(6);    // [0, 1, 5, 6]
+        System.out.println("Deque: " + deque);
+        
+        // Peek at both ends - O(1) - doesn't remove
+        System.out.println("First: " + deque.peekFirst());  // 0
+        System.out.println("Last: " + deque.peekLast());    // 6
+        System.out.println("Deque unchanged: " + deque);
+        
+        // Remove from both ends - O(1)
+        System.out.println("Removed first: " + deque.removeFirst());  // 0
+        System.out.println("Removed last: " +
