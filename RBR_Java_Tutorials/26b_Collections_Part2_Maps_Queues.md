@@ -3098,4 +3098,3071 @@ public class MapSelectionGuide {
         System.out.println("✅ Need range queries");
         System.out.println("✅ Need navigation methods");
         
-        System.out.println("\nUse ConcurrentHashMap
+        System.out.println("\nUse ConcurrentHashMap when:");
+        System.out.println("✅ Need thread-safe map");
+        System.out.println("✅ High concurrency requirements");
+        System.out.println("✅ Better performance than synchronized alternatives");
+        
+        System.out.println("\nUse EnumMap when:");
+        System.out.println("✅ Keys are enum types");
+        System.out.println("✅ Need best performance for enums");
+        System.out.println("✅ Want compact memory usage");
+        
+        System.out.println("\nUse WeakHashMap when:");
+        System.out.println("✅ Implementing memory-sensitive caches");
+        System.out.println("✅ Need automatic cleanup of unused entries");
+        
+        System.out.println("\nUse IdentityHashMap when:");
+        System.out.println("✅ Need reference equality (==) instead of .equals()");
+        System.out.println("✅ Tracking object instances");
+        System.out.println("✅ Serialization scenarios");
+    }
+}
+```
+
+---
+
+## Part III - Concurrent Maps
+
+### ConcurrentHashMap
+
+`ConcurrentHashMap` is a thread-safe Map implementation designed for high concurrency without sacrificing performance.
+
+#### Evolution: Java 7 vs Java 8+
+
+```
+Java 7 - Segment-Based Locking:
+
+┌─────────────────────────────────────┐
+│      ConcurrentHashMap              │
+├─────────────────────────────────────┤
+│  Segment 0  │  Segment 1  │ Segment 2 │
+│  (Lock 0)   │  (Lock 1)   │  (Lock 2)  │
+└─────────────────────────────────────┘
+    ↓              ↓              ↓
+ HashEntry[]    HashEntry[]    HashEntry[]
+
+- Default: 16 segments (concurrency level)
+- Each segment is independently locked
+- Multiple threads can write to different segments
+
+
+Java 8+ - CAS-Based Approach:
+
+┌─────────────────────────────────────┐
+│      ConcurrentHashMap              │
+├─────────────────────────────────────┤
+│         Single Array of Nodes       │
+└─────────────────────────────────────┘
+              ↓
+    Node[] (lock-free with CAS)
+
+- No segments - uses CAS for lock-free operations
+- Synchronized blocks only for specific buckets
+- Tree bins for collisions (like HashMap)
+- Better scalability
+```
+
+#### Key Features
+
+| Feature | ConcurrentHashMap | Hashtable | Collections.synchronizedMap |
+|---------|-------------------|-----------|----------------------------|
+| **Locking** | Fine-grained (bucket-level) | Coarse-grained (entire map) | Coarse-grained |
+| **Read Operations** | Lock-free (usually) | Synchronized | Synchronized |
+| **Performance** | Excellent | Poor | Poor |
+| **Null Keys/Values** | No | No | Depends on underlying map |
+| **Fail-Safe Iterators** | Yes | No | No |
+
+#### Basic ConcurrentHashMap Usage
+
+```java
+import java.util.concurrent.*;
+import java.util.*;
+
+public class ConcurrentHashMapBasics {
+    public static void main(String[] args) throws InterruptedException {
+        ConcurrentHashMap<String, Integer> map = new ConcurrentHashMap<>();
+        
+        // 1. Basic operations - thread-safe
+        map.put("A", 1);
+        map.put("B", 2);
+        map.put("C", 3);
+        
+        System.out.println("Initial map: " + map);
+        
+        // 2. putIfAbsent - atomic operation
+        Integer prev = map.putIfAbsent("A", 100);  // Won't replace
+        System.out.println("putIfAbsent result: " + prev);  // Returns existing value: 1
+        
+        map.putIfAbsent("D", 4);  // Will add
+        System.out.println("After putIfAbsent: " + map);
+        
+        // 3. Atomic replace operations
+        boolean replaced = map.replace("A", 1, 10);  // Only if current value is 1
+        System.out.println("Replace success: " + replaced);  // true
+        System.out.println("After replace: " + map);
+        
+        // 4. Atomic remove operation
+        boolean removed = map.remove("B", 2);  // Only if current value is 2
+        System.out.println("Remove success: " + removed);  // true
+        
+        // 5. compute operations - all atomic
+        map.compute("C", (key, val) -> val == null ? 1 : val * 2);
+        System.out.println("After compute: " + map);
+        
+        // 6. Concurrent safe iteration
+        map.forEach((key, value) -> System.out.println(key + " = " + value));
+        
+        // 7. No NullPointerException for nulls
+        try {
+            map.put(null, 1);
+        } catch (NullPointerException e) {
+            System.out.println("\nCannot put null key");
+        }
+        
+        try {
+            map.put("E", null);
+        } catch (NullPointerException e) {
+            System.out.println("Cannot put null value");
+        }
+    }
+}
+```
+
+#### Concurrent Operations Demo
+
+```java
+import java.util.concurrent.*;
+import java.util.*;
+
+public class ConcurrentMapDemo {
+    private static final int NUM_THREADS = 10;
+    private static final int OPERATIONS_PER_THREAD = 1000;
+    
+    public static void main(String[] args) throws InterruptedException {
+        System.out.println("=== ConcurrentHashMap vs HashMap ===\n");
+        
+        // Test ConcurrentHashMap
+        testMap(new ConcurrentHashMap<>(), "ConcurrentHashMap");
+        
+        // Test HashMap (will have race conditions)
+        testMap(new HashMap<>(), "HashMap (unsafe)");
+        
+        // Test synchronized HashMap
+        testMap(Collections.synchronizedMap(new HashMap<>()), "SynchronizedMap");
+    }
+    
+    private static void testMap(Map<Integer, Integer> map, String name) 
+            throws InterruptedException {
+        System.out.println("Testing: " + name);
+        
+        ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS);
+        CountDownLatch latch = new CountDownLatch(NUM_THREADS);
+        
+        long startTime = System.nanoTime();
+        
+        // Multiple threads incrementing counters
+        for (int i = 0; i < NUM_THREADS; i++) {
+            executor.submit(() -> {
+                try {
+                    for (int j = 0; j < OPERATIONS_PER_THREAD; j++) {
+                        int key = j % 100;  // 100 different keys
+                        
+                        if (map instanceof ConcurrentHashMap) {
+                            // Use atomic operation
+                            ((ConcurrentHashMap<Integer, Integer>) map)
+                                .merge(key, 1, Integer::sum);
+                        } else {
+                            // Manual synchronization needed
+                            synchronized (map) {
+                                map.merge(key, 1, Integer::sum);
+                            }
+                        }
+                    }
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        
+        latch.await();
+        executor.shutdown();
+        
+        long duration = System.nanoTime() - startTime;
+        
+        System.out.println("Time: " + duration / 1_000_000.0 + " ms");
+        System.out.println("Size: " + map.size());
+        
+        // Verify correctness
+        int expectedTotal = NUM_THREADS * OPERATIONS_PER_THREAD;
+        int actualTotal = map.values().stream().mapToInt(Integer::intValue).sum();
+        System.out.println("Expected total: " + expectedTotal);
+        System.out.println("Actual total: " + actualTotal);
+        System.out.println("Correct: " + (expectedTotal == actualTotal) + "\n");
+    }
+}
+```
+
+#### Advanced Atomic Operations
+
+```java
+import java.util.concurrent.*;
+import java.util.*;
+
+public class AtomicOperationsDemo {
+    public static void main(String[] args) {
+        ConcurrentHashMap<String, Integer> inventory = new ConcurrentHashMap<>();
+        
+        // Initialize inventory
+        inventory.put("apples", 100);
+        inventory.put("bananas", 50);
+        inventory.put("oranges", 75);
+        
+        System.out.println("=== Atomic Operations Demo ===\n");
+        System.out.println("Initial inventory: " + inventory);
+        
+        // 1. computeIfAbsent - lazy initialization
+        Integer grapes = inventory.computeIfAbsent("grapes", key -> {
+            System.out.println("Computing value for " + key);
+            return 60;
+        });
+        System.out.println("\nAfter computeIfAbsent: " + inventory);
+        
+        // 2. computeIfPresent - update if exists
+        inventory.computeIfPresent("apples", (key, value) -> {
+            System.out.println("Updating " + key + " from " + value);
+            return value - 10;  // Sold 10 apples
+        });
+        System.out.println("After computeIfPresent: " + inventory);
+        
+        // 3. merge - atomic update with combining function
+        inventory.merge("apples", 20, (oldVal, newVal) -> {
+            System.out.println("Merging: " + oldVal + " + " + newVal);
+            return oldVal + newVal;  // Restocked 20 apples
+        });
+        System.out.println("After merge: " + inventory);
+        
+        // 4. replaceAll - bulk atomic update
+        System.out.println("\nApplying 10% discount to all items:");
+        inventory.replaceAll((key, value) -> (int) (value * 0.9));
+        System.out.println("After discount: " + inventory);
+        
+        // 5. Conditional atomic operations
+        System.out.println("\n=== Conditional Operations ===");
+        
+        // Replace only if current value matches
+        boolean replaced = inventory.replace("bananas", 45, 50);
+        System.out.println("Replace bananas 45→50: " + replaced);
+        
+        // Remove only if current value matches
+        boolean removed = inventory.remove("oranges", 67);
+        System.out.println("Remove oranges if 67: " + removed);
+        
+        System.out.println("\nFinal inventory: " + inventory);
+    }
+}
+```
+
+#### Bulk Operations (Java 8+)
+
+```java
+import java.util.concurrent.*;
+import java.util.*;
+
+public class BulkOperationsDemo {
+    public static void main(String[] args) {
+        ConcurrentHashMap<String, Integer> sales = new ConcurrentHashMap<>();
+        
+        // Populate with sales data
+        for (int i = 1; i <= 100; i++) {
+            sales.put("Product" + i, (int) (Math.random() * 1000));
+        }
+        
+        System.out.println("=== Bulk Operations (Parallel) ===\n");
+        
+        // 1. forEach - parallel iteration
+        System.out.println("High-value products (>800):");
+        sales.forEach(10, (key, value) -> {
+            if (value > 800) {
+                System.out.println(key + ": $" + value);
+            }
+        });
+        
+        // 2. search - parallel search
+        String highestProduct = sales.search(10, (key, value) -> 
+            value > 950 ? key : null
+        );
+        System.out.println("\nFirst product >$950: " + highestProduct);
+        
+        // 3. reduce - parallel reduction
+        Integer totalSales = sales.reduce(10,
+            (key, value) -> value,  // Transformer
+            (v1, v2) -> v1 + v2     // Reducer
+        );
+        System.out.println("Total sales: $" + totalSales);
+        
+        // 4. reduceKeys - work with keys only
+        String concatenated = sales.reduceKeys(10,
+            (k1, k2) -> k1 + "," + k2
+        );
+        System.out.println("\nFirst few product names: " + 
+                          concatenated.substring(0, 50) + "...");
+        
+        // 5. reduceValues - work with values only
+        Integer maxSale = sales.reduceValues(10,
+            (v1, v2) -> Math.max(v1, v2)
+        );
+        System.out.println("Highest single sale: $" + maxSale);
+        
+        // 6. Count entries matching predicate
+        long highValueCount = sales.reduceEntries(10,
+            entry -> entry.getValue() > 500 ? entry : null,
+            (e1, e2) -> e1  // Just need to count
+        ) != null ? 1 : 0;
+        
+        // Better way to count
+        long count = sales.entrySet().parallelStream()
+            .filter(e -> e.getValue() > 500)
+            .count();
+        System.out.println("Products with sales >$500: " + count);
+    }
+}
+```
+
+#### ConcurrentHashMap Performance
+
+```java
+import java.util.concurrent.*;
+import java.util.*;
+
+public class ConcurrentHashMapPerformance {
+    private static final int SIZE = 100000;
+    private static final int THREADS = 8;
+    
+    public static void main(String[] args) throws InterruptedException {
+        System.out.println("=== Performance Comparison ===\n");
+        
+        // Test ConcurrentHashMap
+        testWrites(new ConcurrentHashMap<>(), "ConcurrentHashMap", false);
+        
+        // Test synchronized HashMap
+        Map<Integer, String> syncMap = Collections.synchronizedMap(new HashMap<>());
+        testWrites(syncMap, "SynchronizedMap", true);
+        
+        // Test Hashtable
+        testWrites(new Hashtable<>(), "Hashtable", false);
+    }
+    
+    private static void testWrites(Map<Integer, String> map, String name, 
+                                   boolean needsExternalSync) 
+            throws InterruptedException {
+        System.out.println("Testing: " + name);
+        
+        ExecutorService executor = Executors.newFixedThreadPool(THREADS);
+        CountDownLatch latch = new CountDownLatch(THREADS);
+        
+        long startTime = System.nanoTime();
+        
+        for (int t = 0; t < THREADS; t++) {
+            final int threadId = t;
+            executor.submit(() -> {
+                try {
+                    int start = threadId * (SIZE / THREADS);
+                    int end = start + (SIZE / THREADS);
+                    
+                    for (int i = start; i < end; i++) {
+                        if (needsExternalSync) {
+                            synchronized (map) {
+                                map.put(i, "Value" + i);
+                            }
+                        } else {
+                            map.put(i, "Value" + i);
+                        }
+                    }
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        
+        latch.await();
+        executor.shutdown();
+        
+        long duration = System.nanoTime() - startTime;
+        System.out.println("Time: " + duration / 1_000_000.0 + " ms");
+        System.out.println("Size: " + map.size());
+        System.out.println("Throughput: " + (SIZE / (duration / 1_000_000_000.0)) + 
+                          " ops/sec\n");
+    }
+}
+```
+
+#### When to Use ConcurrentHashMap
+
+✅ **Use ConcurrentHashMap when:**
+- Multiple threads read/write concurrently
+- High throughput required
+- Need non-blocking reads
+- Implementing thread-safe caches
+- Building concurrent data structures
+
+❌ **Don't use ConcurrentHashMap when:**
+- Single-threaded application
+- Need to iterate and modify (use explicit synchronization)
+- Need null keys or values
+- Very low concurrency
+
+---
+
+### Thread-Safe Map Operations
+
+#### Atomic Patterns
+
+```java
+import java.util.concurrent.*;
+import java.util.*;
+
+public class ThreadSafePatterns {
+    
+    // Pattern 1: Thread-safe counter
+    public static class Counter {
+        private final ConcurrentHashMap<String, Integer> counts = 
+            new ConcurrentHashMap<>();
+        
+        public void increment(String key) {
+            counts.merge(key, 1, Integer::sum);
+        }
+        
+        public int get(String key) {
+            return counts.getOrDefault(key, 0);
+        }
+        
+        public Map<String, Integer> snapshot() {
+            return new HashMap<>(counts);
+        }
+    }
+    
+    // Pattern 2: Thread-safe cache with computation
+    public static class ComputeCache<K, V> {
+        private final ConcurrentHashMap<K, V> cache = new ConcurrentHashMap<>();
+        
+        public V get(K key, java.util.function.Function<K, V> computer) {
+            return cache.computeIfAbsent(key, computer);
+        }
+        
+        public void invalidate(K key) {
+            cache.remove(key);
+        }
+        
+        public void clear() {
+            cache.clear();
+        }
+    }
+    
+    // Pattern 3: Multi-value map
+    public static class MultiValueMap<K, V> {
+        private final ConcurrentHashMap<K, Set<V>> map = new ConcurrentHashMap<>();
+        
+        public void add(K key, V value) {
+            map.computeIfAbsent(key, k -> ConcurrentHashMap.newKeySet())
+               .add(value);
+        }
+        
+        public Set<V> get(K key) {
+            return map.getOrDefault(key, Collections.emptySet());
+        }
+        
+        public boolean remove(K key, V value) {
+            Set<V> values = map.get(key);
+            if (values != null) {
+                boolean removed = values.remove(value);
+                if (values.isEmpty()) {
+                    map.remove(key);
+                }
+                return removed;
+            }
+            return false;
+        }
+    }
+    
+    public static void main(String[] args) throws InterruptedException {
+        // Demo Counter
+        System.out.println("=== Counter Pattern ===");
+        Counter counter = new Counter();
+        
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+        for (int i = 0; i < 4; i++) {
+            executor.submit(() -> {
+                for (int j = 0; j < 1000; j++) {
+                    counter.increment("requests");
+                    counter.increment("errors");
+                }
+            });
+        }
+        
+        executor.shutdown();
+        executor.awaitTermination(1, TimeUnit.SECONDS);
+        
+        System.out.println("Total requests: " + counter.get("requests"));
+        System.out.println("Total errors: " + counter.get("errors"));
+        
+        // Demo Cache
+        System.out.println("\n=== Cache Pattern ===");
+        ComputeCache<String, String> cache = new ComputeCache<>();
+        
+        String value1 = cache.get("key1", key -> {
+            System.out.println("Computing value for " + key);
+            return key.toUpperCase();
+        });
+        
+        String value2 = cache.get("key1", key -> {
+            System.out.println("This won't be called");
+            return "won't happen";
+        });
+        
+        System.out.println("Value1: " + value1);
+        System.out.println("Value2: " + value2);
+        System.out.println("Same instance? " + (value1 == value2));
+        
+        // Demo MultiValueMap
+        System.out.println("\n=== MultiValueMap Pattern ===");
+        MultiValueMap<String, String> multiMap = new MultiValueMap<>();
+        
+        multiMap.add("fruits", "apple");
+        multiMap.add("fruits", "banana");
+        multiMap.add("vegetables", "carrot");
+        
+        System.out.println("Fruits: " + multiMap.get("fruits"));
+        System.out.println("Vegetables: " + multiMap.get("vegetables"));
+    }
+}
+```
+
+#### Compare-And-Swap (CAS) Pattern
+
+```java
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.*;
+
+public class CASPatternDemo {
+    
+    // Using ConcurrentHashMap's atomic operations
+    static class BankAccount {
+        private final ConcurrentHashMap<String, AtomicLong> balances = 
+            new ConcurrentHashMap<>();
+        
+        public void createAccount(String accountId, long initialBalance) {
+            balances.putIfAbsent(accountId, new AtomicLong(initialBalance));
+        }
+        
+        public boolean transfer(String from, String to, long amount) {
+            AtomicLong fromBalance = balances.get(from);
+            AtomicLong toBalance = balances.get(to);
+            
+            if (fromBalance == null || toBalance == null) {
+                return false;
+            }
+            
+            // Atomic check-and-update
+            long fromAmount = fromBalance.get();
+            if (fromAmount < amount) {
+                return false;  // Insufficient funds
+            }
+            
+            // Optimistic update with CAS
+            if (fromBalance.compareAndSet(fromAmount, fromAmount - amount)) {
+                toBalance.addAndGet(amount);
+                return true;
+            }
+            
+            return false;  // Concurrent modification, retry needed
+        }
+        
+        public long getBalance(String accountId) {
+            AtomicLong balance = balances.get(accountId);
+            return balance != null ? balance.get() : 0;
+        }
+    }
+    
+    public static void main(String[] args) throws InterruptedException {
+        BankAccount bank = new BankAccount();
+        
+        // Create accounts
+        bank.createAccount("Alice", 1000);
+        bank.createAccount("Bob", 500);
+        
+        System.out.println("=== Initial Balances ===");
+        System.out.println("Alice: $" + bank.getBalance("Alice"));
+        System.out.println("Bob: $" + bank.getBalance("Bob"));
+        
+        // Simulate concurrent transfers
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+        CountDownLatch latch = new CountDownLatch(100);
+        
+        for (int i = 0; i < 100; i++) {
+            executor.submit(() -> {
+                try {
+                    bank.transfer("Alice", "Bob", 10);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        
+        latch.await();
+        executor.shutdown();
+        
+        System.out.println("\n=== Final Balances ===");
+        System.out.println("Alice: $" + bank.getBalance("Alice"));
+        System.out.println("Bob: $" + bank.getBalance("Bob"));
+        System.out.println("Total: $" + 
+            (bank.getBalance("Alice") + bank.getBalance("Bob")));
+    }
+}
+```
+
+---
+
+### Concurrent Map Patterns
+
+#### Producer-Consumer with ConcurrentHashMap
+
+```java
+import java.util.concurrent.*;
+import java.util.*;
+
+public class ProducerConsumerPattern {
+    private static final ConcurrentHashMap<String, BlockingQueue<String>> 
+        messageQueues = new ConcurrentHashMap<>();
+    
+    static class Producer implements Runnable {
+        private final String topic;
+        private final int messageCount;
+        
+        Producer(String topic, int messageCount) {
+            this.topic = topic;
+            this.messageCount = messageCount;
+        }
+        
+        @Override
+        public void run() {
+            BlockingQueue<String> queue = messageQueues.computeIfAbsent(
+                topic, k -> new LinkedBlockingQueue<>()
+            );
+            
+            for (int i = 0; i < messageCount; i++) {
+                try {
+                    String message = "Message-" + i + " on " + topic;
+                    queue.put(message);
+                    System.out.println("Produced: " + message);
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+    }
+    
+    static class Consumer implements Runnable {
+        private final String topic;
+        private final int messageCount;
+        
+        Consumer(String topic, int messageCount) {
+            this.topic = topic;
+            this.messageCount = messageCount;
+        }
+        
+        @Override
+        public void run() {
+            BlockingQueue<String> queue = messageQueues.get(topic);
+            if (queue == null) {
+                System.out.println("No queue for topic: " + topic);
+                return;
+            }
+            
+            for (int i = 0; i < messageCount; i++) {
+                try {
+                    String message = queue.poll(5, TimeUnit.SECONDS);
+                    if (message != null) {
+                        System.out.println("Consumed: " + message);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+    }
+    
+    public static void main(String[] args) throws InterruptedException {
+        System.out.println("=== Producer-Consumer Pattern ===\n");
+        
+        ExecutorService executor = Executors.newCachedThreadPool();
+        
+        // Start producers
+        executor.submit(new Producer("topic1", 5));
+        executor.submit(new Producer("topic2", 5));
+        
+        // Give producers time to produce some messages
+        Thread.sleep(200);
+        
+        // Start consumers
+        executor.submit(new Consumer("topic1", 5));
+        executor.submit(new Consumer("topic2", 5));
+        
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.SECONDS);
+        
+        System.out.println("\n=== Final State ===");
+        messageQueues.forEach((topic, queue) ->
+            System.out.println(topic + ": " + queue.size() + " remaining messages")
+        );
+    }
+}
+```
+
+#### Distributed Counter Pattern
+
+```java
+import java.util.concurrent.*;
+import java.util.*;
+
+public class DistributedCounterPattern {
+    
+    static class DistributedCounter {
+        private final ConcurrentHashMap<String, LongAdder> counters = 
+            new ConcurrentHashMap<>();
+        
+        public void increment(String key) {
+            counters.computeIfAbsent(key, k -> new LongAdder()).increment();
+        }
+        
+        public void add(String key, long delta) {
+            counters.computeIfAbsent(key, k -> new LongAdder()).add(delta);
+        }
+        
+        public long get(String key) {
+            LongAdder adder = counters.get(key);
+            return adder != null ? adder.sum() : 0;
+        }
+        
+        public Map<String, Long> snapshot() {
+            Map<String, Long> result = new HashMap<>();
+            counters.forEach((key, adder) -> result.put(key, adder.sum()));
+            return result;
+        }
+        
+        public void reset(String key) {
+            LongAdder adder = counters.get(key);
+            if (adder != null) {
+                adder.reset();
+            }
+        }
+    }
+    
+    public static void main(String[] args) throws InterruptedException {
+        DistributedCounter counter = new DistributedCounter();
+        
+        System.out.println("=== Distributed Counter Demo ===\n");
+        
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+        CountDownLatch latch = new CountDownLatch(10);
+        
+        // 10 threads, each incrementing 10,000 times
+        for (int i = 0; i < 10; i++) {
+            executor.submit(() -> {
+                try {
+                    for (int j = 0; j < 10000; j++) {
+                        counter.increment("requests");
+                        if (j % 10 == 0) {
+                            counter.increment("errors");
+                        }
+                    }
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        
+        latch.await();
+        executor.shutdown();
+        
+        System.out.println("Final counts:");
+        System.out.println("Requests: " + counter.get("requests"));
+        System.out.println("Errors: " + counter.get("errors"));
+        System.out.println("\nSnapshot: " + counter.snapshot());
+    }
+}
+```
+
+---
+
+## Part IV - Queue & Deque
+
+### Queue Interface
+
+The `Queue` interface represents a collection designed for holding elements before processing. It typically orders elements in FIFO (first-in-first-out) manner.
+
+```mermaid
+classDiagram
+    class Queue {
+        <<interface>>
+        +add(E) boolean
+        +offer(E) boolean
+        +remove() E
+        +poll() E
+        +element() E
+        +peek() E
+    }
+    
+    class Deque {
+        <<interface>>
+        +addFirst(E)
+        +addLast(E)
+        +offerFirst(E) boolean
+        +offerLast(E) boolean
+        +removeFirst() E
+        +removeLast() E
+        +pollFirst() E
+        +pollLast() E
+    }
+    
+    class BlockingQueue {
+        <<interface>>
+        +put(E)
+        +take() E
+        +offer(E, timeout) boolean
+        +poll(timeout) E
+    }
+    
+    Queue <|-- Deque
+    Queue <|-- BlockingQueue
+    
+    Queue <|.. PriorityQueue
+    Deque <|.. ArrayDeque
+    Deque <|.. LinkedList
+    BlockingQueue <|.. ArrayBlockingQueue
+    BlockingQueue <|.. LinkedBlockingQueue
+    BlockingQueue <|.. PriorityBlockingQueue
+```
+
+#### Queue Operations
+
+| Operation Type | Throws Exception | Returns Special Value |
+|---------------|------------------|----------------------|
+| **Insert** | add(e) | offer(e) |
+| **Remove** | remove() | poll() |
+| **Examine** | element() | peek() |
+
+#### Basic Queue Usage
+
+```java
+import java.util.*;
+
+public class QueueBasicsDemo {
+    public static void main(String[] args) {
+        Queue<String> queue = new LinkedList<>();
+        
+        System.out.println("=== Queue Operations ===\n");
+        
+        // 1. offer() - adds element, returns false if fails
+        queue.offer("First");
+        queue.offer("Second");
+        queue.offer("Third");
+        System.out.println("After offers: " + queue);
+        
+        // 2. peek() - retrieves but doesn't remove head
+        String head = queue.peek();
+        System.out.println("Peek: " + head);
+        System.out.println("Queue after peek: " + queue);
+        
+        // 3. poll() - retrieves and removes head
+        String removed = queue.poll();
+        System.out.println("\nPolled: " + removed);
+        System.out.println("Queue after poll: " + queue);
+        
+        // 4. add() vs offer()
+        System.out.println("\n=== add() vs offer() ===");
+        Queue<Integer> boundedQueue = new LinkedList<>();
+        
+        // Both work the same for unbounded queues
+        boolean offered = boundedQueue.offer(1);
+        System.out.println("offer(1): " + offered);
+        
+        boundedQueue.add(2);
+        System.out.println("Queue: " + boundedQueue);
+        
+        // 5. remove() vs poll()
+        System.out.println("\n=== remove() vs poll() ===");
+        System.out.println("remove(): " + boundedQueue.remove());  // Throws if empty
+        System.out.println("poll(): " + boundedQueue.poll());      // Returns null if empty
+        
+        // Difference when queue is empty
+        System.out.println("\nQueue is empty: " + boundedQueue.isEmpty());
+        System.out.println("poll() on empty: " + boundedQueue.poll());  // null
+        
+        try {
+            boundedQueue.remove();  // Throws NoSuchElementException
+        } catch (NoSuchElementException e) {
+            System.out.println("remove() on empty throws: " + e.getClass().getSimpleName());
+        }
+        
+        // 6. element() vs peek()
+        System.out.println("\n=== element() vs peek() ===");
+        queue.offer("Test");
+        System.out.println("element(): " + queue.element());  // Throws if empty
+        System.out.println("peek(): " + queue.peek());        // Returns null if empty
+        
+        queue.clear();
+        System.out.println("\nQueue is empty: " + queue.isEmpty());
+        System.out.println("peek() on empty: " + queue.peek());  // null
+        
+        try {
+            queue.element();  // Throws NoSuchElementException
+        } catch (NoSuchElementException e) {
+            System.out.println("element() on empty throws: " + e.getClass().getSimpleName());
+        }
+    }
+}
+```
+
+**Output:**
+```
+=== Queue Operations ===
+
+After offers: [First, Second, Third]
+Peek: First
+Queue after peek: [First, Second, Third]
+
+Polled: First
+Queue after poll: [Second, Third]
+
+=== add() vs offer() ===
+offer(1): true
+Queue: [1, 2]
+
+=== remove() vs poll() ===
+remove(): 1
+poll(): 2
+
+Queue is empty: true
+poll() on empty: null
+remove() on empty throws: NoSuchElementException
+
+=== element() vs peek() ===
+element(): Test
+peek(): Test
+
+Queue is empty: true
+peek() on empty: null
+element() on empty throws: NoSuchElementException
+```
+
+#### Queue vs Stack
+
+```java
+import java.util.*;
+
+public class QueueVsStackDemo {
+    public static void main(String[] args) {
+        System.out.println("=== Queue (FIFO) vs Stack (LIFO) ===\n");
+        
+        // Queue: First-In-First-Out
+        Queue<Integer> queue = new LinkedList<>();
+        System.out.println("Queue (FIFO):");
+        queue.offer(1);
+        queue.offer(2);
+        queue.offer(3);
+        System.out.println("Add: 1, 2, 3");
+        System.out.println("Remove order: " + queue.poll() + ", " + 
+                          queue.poll() + ", " + queue.poll());
+        
+        // Stack: Last-In-First-Out
+        Deque<Integer> stack = new ArrayDeque<>();
+        System.out.println("\nStack (LIFO):");
+        stack.push(1);
+        stack.push(2);
+        stack.push(3);
+        System.out.println("Push: 1, 2, 3");
+        System.out.println("Pop order: " + stack.pop() + ", " + 
+                          stack.pop() + ", " + stack.pop());
+    }
+}
+```
+
+**Output:**
+```
+=== Queue (FIFO) vs Stack (LIFO) ===
+
+Queue (FIFO):
+Add: 1, 2, 3
+Remove order: 1, 2, 3
+
+Stack (LIFO):
+Push: 1, 2, 3
+Pop order: 3, 2, 1
+```
+
+---
+
+### PriorityQueue
+
+`PriorityQueue` is a heap-based priority queue where elements are ordered by their natural ordering or by a custom Comparator.
+
+#### Heap Structure
+
+```
+Min-Heap (Default PriorityQueue):
+
+                  1
+               /     \
+              2       3
+            /   \   /   \
+           4     5 6     7
+
+Array representation: [1, 2, 3, 4, 5, 6, 7]
+
+Parent of index i: (i-1)/2
+Left child of i: 2*i + 1
+Right child of i: 2*i + 2
+```
+
+#### PriorityQueue Characteristics
+
+| Feature | PriorityQueue |
+|---------|---------------|
+| **Ordering** | Natural or Comparator |
+| **Null Elements** | Not permitted |
+| **Duplicates** | Allowed |
+| **Time - offer()** | O(log n) |
+| **Time - poll()** | O(log n) |
+| **Time - peek()** | O(1) |
+| **Time - remove(Object)** | O(n) |
+| **Thread-Safe** | No |
+
+#### Basic PriorityQueue Usage
+
+```java
+import java.util.*;
+
+public class PriorityQueueBasics {
+    public static void main(String[] args) {
+        // 1. Natural ordering (min-heap)
+        System.out.println("=== Natural Ordering (Min-Heap) ===");
+        PriorityQueue<Integer> minHeap = new PriorityQueue<>();
+        
+        minHeap.offer(5);
+        minHeap.offer(2);
+        minHeap.offer(8);
+        minHeap.offer(1);
+        minHeap.offer(9);
+        
+        System.out.println("Added: 5, 2, 8, 1, 9");
+        System.out.print("Poll order: ");
+        while (!minHeap.isEmpty()) {
+            System.out.print(minHeap.poll() + " ");
+        }
+        System.out.println("(ascending)");
+        
+        // 2. Reverse ordering (max-heap)
+        System.out.println("\n=== Reverse Ordering (Max-Heap) ===");
+        PriorityQueue<Integer> maxHeap = 
+            new PriorityQueue<>(Comparator.reverseOrder());
+        
+        maxHeap.offer(5);
+        maxHeap.offer(2);
+        maxHeap.offer(8);
+        maxHeap.offer(1);
+        maxHeap.offer(9);
+        
+        System.out.println("Added: 5, 2, 8, 1, 9");
+        System.out.print("Poll order: ");
+        while (!maxHeap.isEmpty()) {
+            System.out.print(maxHeap.poll() + " ");
+        }
+        System.out.println("(descending)");
+        
+        // 3. Custom objects with Comparable
+        System.out.println("\n=== Custom Objects (Comparable) ===");
+        PriorityQueue<Task> taskQueue = new PriorityQueue<>();
+        
+        taskQueue.offer(new Task("Low priority", 3));
+        taskQueue.offer(new Task("High priority", 1));
+        taskQueue.offer(new Task("Medium priority", 2));
+        
+        System.out.println("Processing tasks by priority:");
+        while (!taskQueue.isEmpty()) {
+            System.out.println(taskQueue.poll());
+        }
+        
+        // 4. Custom Comparator
+        System.out.println("\n=== Custom Comparator ===");
+        PriorityQueue<String> byLength = 
+            new PriorityQueue<>(Comparator.comparingInt(String::length));
+        
+        byLength.offer("short");
+        byLength.offer("a");
+        byLength.offer("medium size");
+        byLength.offer("xy");
+        
+        System.out.println("Poll by length:");
+        while (!byLength.isEmpty()) {
+            System.out.println(byLength.poll());
+        }
+    }
+    
+    static class Task implements Comparable<Task> {
+        String name;
+        int priority;
+        
+        Task(String name, int priority) {
+            this.name = name;
+            this.priority = priority;
+        }
+        
+        @Override
+        public int compareTo(Task other) {
+            return Integer.compare(this.priority, other.priority);
+        }
+        
+        @Override
+        public String toString() {
+            return name + " (priority " + priority + ")";
+        }
+    }
+}
+```
+
+**Output:**
+```
+=== Natural Ordering (Min-Heap) ===
+Added: 5, 2, 8, 1, 9
+Poll order: 1 2 5 8 9 (ascending)
+
+=== Reverse Ordering (Max-Heap) ===
+Added: 5, 2, 8, 1, 9
+Poll order: 9 8 5 2 1 (descending)
+
+=== Custom Objects (Comparable) ===
+Processing tasks by priority:
+High priority (priority 1)
+Medium priority (priority 2)
+Low priority (priority 3)
+
+=== Custom Comparator ===
+Poll by length:
+a
+xy
+short
+medium size
+```
+
+#### Heap Operations Visualization
+
+```java
+import java.util.*;
+
+public class HeapVisualization {
+    public static void main(String[] args) {
+        PriorityQueue<Integer> heap = new PriorityQueue<>();
+        
+        System.out.println("=== Heap Operations ===\n");
+        
+        // Insert elements
+        int[] values = {5, 3, 7, 1, 9, 2, 8};
+        System.out.println("Inserting: " + Arrays.toString(values));
+        
+        for (int val : values) {
+            heap.offer(val);
+            System.out.println("After adding " + val + ": " + heap);
+        }
+        
+        // Remove elements
+        System.out.println("\nRemoving elements:");
+        while (!heap.isEmpty()) {
+            int removed = heap.poll();
+            System.out.println("Removed " + removed + ", remaining: " + heap);
+        }
+    }
+}
+```
+
+#### Priority Queue Real-World Examples
+
+```java
+import java.util.*;
+
+public class PriorityQueueExamples {
+    
+    // Example 1: Task Scheduler
+    static class TaskScheduler {
+        static class ScheduledTask implements Comparable<ScheduledTask> {
+            String name;
+            long scheduledTime;
+            int priority;
+            
+            ScheduledTask(String name, long scheduledTime, int priority) {
+                this.name = name;
+                this.scheduledTime = scheduledTime;
+                this.priority = priority;
+            }
+            
+            @Override
+            public int compareTo(ScheduledTask other) {
+                // First by time, then by priority
+                int timeComp = Long.compare(this.scheduledTime, other.scheduledTime);
+                return timeComp != 0 ? timeComp : 
+                       Integer.compare(this.priority, other.priority);
+            }
+            
+            @Override
+            public String toString() {
+                return name + " (t=" + scheduledTime + ", p=" + priority + ")";
+            }
+        }
+        
+        private PriorityQueue<ScheduledTask> tasks = new PriorityQueue<>();
+        
+        public void schedule(String name, long delay, int priority) {
+            long scheduledTime = System.currentTimeMillis() + delay;
+            tasks.offer(new ScheduledTask(name, scheduledTime, priority));
+        }
+        
+        public ScheduledTask getNextTask() {
+            long now = System.currentTimeMillis();
+            if (!tasks.isEmpty() && tasks.peek().scheduledTime <= now) {
+                return tasks.poll();
+            }
+            return null;
+        }
+        
+        public ScheduledTask peekNext() {
+            return tasks.peek();
+        }
+    }
+    
+    // Example 2: Top K Elements
+    public static List<Integer> topKFrequent(int[] nums, int k) {
+        // Count frequencies
+        Map<Integer, Integer> freqMap = new HashMap<>();
+        for (int num : nums) {
+            freqMap.merge(num, 1, Integer::sum);
+        }
+        
+        // Use min-heap of size k
+        PriorityQueue<Map.Entry<Integer, Integer>> minHeap = 
+            new PriorityQueue<>(Comparator.comparingInt(Map.Entry::getValue));
+        
+        for (Map.Entry<Integer, Integer> entry : freqMap.entrySet()) {
+            minHeap.offer(entry);
+            if (minHeap.size() > k) {
+                minHeap.poll();
+            }
+        }
+        
+        // Extract elements
+        List<Integer> result = new ArrayList<>();
+        while (!minHeap.isEmpty()) {
+            result.add(minHeap.poll().getKey());
+        }
+        Collections.reverse(result);
+        return result;
+    }
+    
+    // Example 3: Merge K Sorted Lists
+    static class ListNode {
+        int val;
+        ListNode next;
+        ListNode(int val) { this.val = val; }
+    }
+    
+    public static ListNode mergeKLists(ListNode[] lists) {
+        PriorityQueue<ListNode> minHeap = new PriorityQueue<>(
+            Comparator.comparingInt(node -> node.val)
+        );
+        
+        // Add head of each list
+        for (ListNode list : lists) {
+            if (list != null) {
+                minHeap.offer(list);
+            }
+        }
+        
+        ListNode dummy = new ListNode(0);
+        ListNode current = dummy;
+        
+        while (!minHeap.isEmpty()) {
+            ListNode smallest = minHeap.poll();
+            current.next = smallest;
+            current = current.next;
+            
+            if (smallest.next != null) {
+                minHeap.offer(smallest.next);
+            }
+        }
+        
+        return dummy.next;
+    }
+    
+    public static void main(String[] args) {
+        // Demo Task Scheduler
+        System.out.println("=== Task Scheduler ===");
+        TaskScheduler scheduler = new TaskScheduler();
+        
+        scheduler.schedule("Task A", 1000, 1);
+        scheduler.schedule("Task B", 500, 2);
+        scheduler.schedule("Task C", 500, 1);  // Same time as B, higher priority
+        
+        System.out.println("Next task: " + scheduler.peekNext());
+        
+        // Demo Top K Frequent
+        System.out.println("\n=== Top K Frequent Elements ===");
+        int[] nums = {1, 1, 1, 2, 2, 3, 4, 4, 4, 4};
+        int k = 2;
+        List<Integer> topK = topKFrequent(nums, k);
+        System.out.println("Top " + k + " frequent: " + topK);
+    }
+}
+```
+
+#### PriorityQueue Performance
+
+```java
+import java.util.*;
+
+public class PriorityQueuePerformance {
+    public static void main(String[] args) {
+        int size = 100000;
+        
+        System.out.println("=== PriorityQueue Performance ===\n");
+        
+        PriorityQueue<Integer> pq = new PriorityQueue<>();
+        Random random = new Random();
+        
+        // Test offer()
+        long start = System.nanoTime();
+        for (int i = 0; i < size; i++) {
+            pq.offer(random.nextInt());
+        }
+        long offerTime = System.nanoTime() - start;
+        System.out.printf("offer() %d elements: %.2f ms%n", size, offerTime / 1_000_000.0);
+        
+        // Test peek()
+        start = System.nanoTime();
+        for (int i = 0; i < 10000; i++) {
+            pq.peek();
+        }
+        long peekTime = System.nanoTime() - start;
+        System.out.printf("peek() 10000 times: %.2f ms%n", peekTime / 1_000_000.0);
+        
+        // Test poll()
+        start = System.nanoTime();
+        for (int i = 0; i < size; i++) {
+            pq.poll();
+        }
+        long pollTime = System.nanoTime() - start;
+        System.out.printf("poll() %d elements: %.2f ms%n", size, pollTime / 1_000_000.0);
+        
+        System.out.println("\nTime Complexity:");
+        System.out.println("offer():  O(log n)");
+        System.out.println("poll():   O(log n)");
+        System.out.println("peek():   O(1)");
+        System.out.println("remove(): O(n)");
+    }
+}
+```
+
+#### When to Use PriorityQueue
+
+✅ **Use PriorityQueue when:**
+- Need to process elements by priority
+- Implementing algorithms (Dijkstra's, Prim's, etc.)
+- Finding top K elements
+- Scheduling tasks
+- Merging sorted sequences
+
+❌ **Don't use PriorityQueue when:**
+- Need FIFO order (use LinkedList/ArrayDeque)
+- Need random access (use ArrayList)
+- Need sorted list with fast lookups (use TreeSet)
+- Thread safety required (use PriorityBlockingQueue)
+
+---
+
+### ArrayDeque
+
+`ArrayDeque` (Array Double-Ended Queue) is a resizable array implementation of the `Deque` interface, offering better performance than `LinkedList` for most operations.
+
+#### ArrayDeque Structure
+
+```
+Circular Array Implementation:
+
+Initial state (capacity 8):
+[-, -, -, -, -, -, -, -]
+ ↑
+head/tail
+
+After addLast(A, B, C):
+[A, B, C, -, -, -, -, -]
+ ↑     ↑
+head  tail
+
+After addFirst(X, Y):
+[A, B, C, -, -, -, Y, X]
+       ↑           ↑
+      tail        head
+
+Wrapping around:
+[A, B, C, D, E, F, Y, X]
+       ↑           ↑
+      tail        head
+```
+
+#### ArrayDeque Characteristics
+
+| Feature | ArrayDeque | LinkedList |
+|---------|------------|------------|
+| **Implementation** | Circular array | Doubly-linked list |
+| **Memory** | More compact | Higher overhead |
+| **addFirst/Last** | O(1) amortized | O(1) |
+| **removeFirst/Last** | O(1) | O(1) |
+| **get(index)** | Not supported | O(n) |
+| **Iterator remove** | O(n) | O(1) |
+| **Null elements** | Not allowed | Allowed |
+
+#### Basic ArrayDeque Usage
+
+```java
+import java.util.*;
+
+public class ArrayDequeBasics {
+    public static void main(String[] args) {
+        Deque<String> deque = new ArrayDeque<>();
+        
+        System.out.println("=== ArrayDeque Operations ===\n");
+        
+        // 1. Add to both ends
+        System.out.println("Adding elements:");
+        deque.addLast("A");    // Add to tail
+        deque.addLast("B");
+        deque.addFirst("Z");   // Add to head
+        deque.addFirst("Y");
+        
+        System.out.println("Deque: " + deque);  // [Y, Z, A, B]
+        
+        // 2. Peek at both ends
+        System.out.println("\nPeeking:");
+        System.out.println("First: " + deque.peekFirst());  // Y
+        System.out.println("Last: " + deque.peekLast());    // B
+        
+        // 3. Remove from both ends
+        System.out.println("\nRemoving:");
+        System.out.println("Remove first: " + deque.removeFirst());  // Y
+        System.out.println("Remove last: " + deque.removeLast());    // B
+        System.out.println("Deque: " + deque);  // [Z, A]
+        
+        // 4. Use as Stack (LIFO)
+        System.out.println("\n=== Using as Stack ===");
+        Deque<Integer> stack = new ArrayDeque<>();
+        
+        stack.push(1);
+        stack.push(2);
+        stack.push(3);
+        System.out.println("After pushes: " + stack);
+        
+        System.out.println("Pop: " + stack.pop());  // 3
+        System.out.println("Pop: " + stack.pop());  // 2
+        System.out.println("Peek: " + stack.peek()); // 1
+        
+        // 5. Use as Queue (FIFO)
+        System.out.println("\n=== Using as Queue ===");
+        Deque<String> queue = new ArrayDeque<>();
+        
+        queue.offer("First");
+        queue.offer("Second");
+        queue.offer("Third");
+        System.out.println("After offers: " + queue);
+        
+        System.out.println("Poll: " + queue.poll());  // First
+        System.out.println("Poll: " + queue.poll());  // Second
+        System.out.println("Peek: " + queue.peek());  // Third
+    }
+}
+```
+
+**Output:**
+```
+=== ArrayDeque Operations ===
+
+Adding elements:
+Deque: [Y, Z, A, B]
+
+Peeking:
+First: Y
+Last: B
+
+Removing:
+Remove first: Y
+Remove last: B
+Deque: [Z, A]
+
+=== Using as Stack ===
+After pushes: [3, 2, 1]
+Pop: 3
+Pop: 2
+Peek: 1
+
+=== Using as Queue ===
+After offers: [First, Second, Third]
+Poll: First
+Poll: Second
+Peek: Third
+```
+
+#### ArrayDeque vs LinkedList
+
+```java
+import java.util.*;
+
+public class ArrayDequeVsLinkedList {
+    private static final int SIZE = 1000000;
+    
+    public static void main(String[] args) {
+        System.out.println("=== ArrayDeque vs LinkedList Performance ===\n");
+        
+        // Test addLast
+        System.out.println("addLast() test:");
+        testAddLast(new ArrayDeque<>(), "ArrayDeque");
+        testAddLast(new LinkedList<>(), "LinkedList");
+        
+        // Test addFirst
+        System.out.println("\naddFirst() test:");
+        testAddFirst(new ArrayDeque<>(), "ArrayDeque");
+        testAddFirst(new LinkedList<>(), "LinkedList");
+        
+        // Test iteration
+        System.out.println("\nIteration test:");
+        Deque<Integer> arrayDeque = new ArrayDeque<>();
+        Deque<Integer> linkedList = new LinkedList<>();
+        
+        for (int i = 0; i < SIZE; i++) {
+            arrayDeque.add(i);
+            linkedList.add(i);
+        }
+        
+        testIteration(arrayDeque, "ArrayDeque");
+        testIteration(linkedList, "LinkedList");
+        
+        // Memory usage estimate
+        System.out.println("\n=== Memory Usage ===");
+        System.out.println("ArrayDeque: ~" + (SIZE * 4 + 64) + " bytes");
+        System.out.println("LinkedList: ~" + (SIZE * 24 + 64) + " bytes");
+        System.out.println("ArrayDeque uses ~6x less memory");
+    }
+    
+    private static void testAddLast(Deque<Integer> deque, String name) {
+        long start = System.nanoTime();
+        for (int i = 0; i < SIZE; i++) {
+            deque.addLast(i);
+        }
+        long duration = System.nanoTime() - start;
+        System.out.printf("%-15s: %.2f ms%n", name, duration / 1_000_000.0);
+    }
+    
+    private static void testAddFirst(Deque<Integer> deque, String name) {
+        long start = System.nanoTime();
+        for (int i = 0; i < SIZE; i++) {
+            deque.addFirst(i);
+        }
+        long duration = System.nanoTime() - start;
+        System.out.printf("%-15s: %.2f ms%n", name, duration / 1_000_000.0);
+    }
+    
+    private static void testIteration(Deque<Integer> deque, String name) {
+        long start = System.nanoTime();
+        long sum = 0;
+        for (Integer value : deque) {
+            sum += value;
+        }
+        long duration = System.nanoTime() - start;
+        System.out.printf("%-15s: %.2f ms%n", name, duration / 1_000_000.0);
+    }
+}
+```
+
+#### ArrayDeque Resizing
+
+```java
+import java.util.*;
+import java.lang.reflect.Field;
+
+public class ArrayDequeResizing {
+    public static int getCapacity(ArrayDeque<?> deque) {
+        try {
+            Field elementsField = ArrayDeque.class.getDeclaredField("elements");
+            elementsField.setAccessible(true);
+            Object[] elements = (Object[]) elementsField.get(deque);
+            return elements.length;
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+    
+    public static void main(String[] args) {
+        ArrayDeque<Integer> deque = new ArrayDeque<>();
+        
+        System.out.println("=== ArrayDeque Resizing ===\n");
+        System.out.println("Initial capacity: " + getCapacity(deque));
+        
+        // Add elements and watch capacity grow
+        int[] checkpoints = {1, 8, 9, 16, 17, 32, 33};
+        
+        for (int checkpoint : checkpoints) {
+            while (deque.size() < checkpoint) {
+                deque.add(deque.size());
+            }
+            
+            int capacity = getCapacity(deque);
+            System.out.printf("Size: %2d | Capacity: %3d | Load: %.1f%%%n",
+                            deque.size(), capacity, 
+                            (deque.size() * 100.0 / capacity));
+        }
+        
+        System.out.println("\nCapacity doubles when full");
+        System.out.println("Minimum capacity: 16 (default)");
+    }
+}
+```
+
+#### When to Use ArrayDeque
+
+✅ **Use ArrayDeque when:**
+- Need stack or queue operations
+- Want better performance than LinkedList
+- Memory efficiency matters
+- Don't need null elements
+- Don't need indexed access
+
+❌ **Don't use ArrayDeque when:**
+- Need null elements
+- Need indexed access (use ArrayList)
+- Need priority ordering (use PriorityQueue)
+- Thread safety required (use BlockingDeque)
+
+---
+
+### BlockingQueue
+
+`BlockingQueue` extends `Queue` with operations that wait for the queue to become non-empty when retrieving, and wait for space when storing.
+
+#### BlockingQueue Operations
+
+| Operation | Throws Exception | Special Value | Blocks | Times Out |
+|-----------|------------------|---------------|--------|-----------|
+| **Insert** | add(e) | offer(e) | **put(e)** | offer(e, time) |
+| **Remove** | remove() | poll() | **take()** | poll(time) |
+| **Examine** | element() | peek() | N/A | N/A |
+
+#### BlockingQueue Implementations
+
+```mermaid
+classDiagram
+    class BlockingQueue {
+        <<interface>>
+        +put(E)
+        +take() E
+        +offer(E, timeout) boolean
+        +poll(timeout) E
+    }
+    
+    BlockingQueue <|.. ArrayBlockingQueue
+    BlockingQueue <|.. LinkedBlockingQueue
+    BlockingQueue <|.. PriorityBlockingQueue
+    BlockingQueue <|.. SynchronousQueue
+    BlockingQueue <|.. DelayQueue
+    
+    class ArrayBlockingQueue {
+        Fixed capacity
+        Fair/Unfair
+    }
+    
+    class LinkedBlockingQueue {
+        Optional capacity
+        Better throughput
+    }
+    
+    class PriorityBlockingQueue {
+        Unbounded
+        Priority ordering
+    }
+```
+
+#### ArrayBlockingQueue
+
+```java
+import java.util.concurrent.*;
+import java.util.*;
+
+public class ArrayBlockingQueueDemo {
+    public static void main(String[] args) throws InterruptedException {
+        // Fixed capacity blocking queue
+        BlockingQueue<String> queue = new ArrayBlockingQueue<>(3);
+        
+        System.out.println("=== ArrayBlockingQueue Demo ===\n");
+        
+        // 1. Non-blocking operations
+        System.out.println("Non-blocking operations:");
+        System.out.println("offer(A): " + queue.offer("A"));  // true
+        System.out.println("offer(B): " + queue.offer("B"));  // true
+        System.out.println("offer(C): " + queue.offer("C"));  // true
+        System.out.println("offer(D): " + queue.offer("D"));  // false (full)
+        System.out.println("Queue: " + queue);
+        
+        // 2. Timed operations
+        System.out.println("\nTimed operations:");
+        boolean offered = queue.offer("D", 1, TimeUnit.SECONDS);
+        System.out.println("offer(D, 1sec): " + offered);  // false (timeout)
+        
+        String polled = queue.poll(1, TimeUnit.SECONDS);
+        System.out.println("poll(1sec): " + polled);  // A
+        
+        // 3. Blocking operations (demonstrated with threads)
+        System.out.println("\nBlocking operations demo:");
+        
+        // Fill queue
+        queue.put("X");
+        queue.put("Y");
+        
+        System.out.println("Queue after put operations: " + queue);
+        
+        // Demonstrate blocking behavior with threads
+        Thread producer = new Thread(() -> {
+            try {
+                Thread.sleep(2000);  // Wait 2 seconds
+                System.out.println("Producer: Adding Z (queue was full)");
+                queue.put("Z");
+                System.out.println("Producer: Successfully added Z");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        
+        Thread consumer = new Thread(() -> {
+            try {
+                Thread.sleep(1000);  // Wait 1 second
+                String item = queue.take();
+                System.out.println("Consumer: Took " + item + " from queue");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        
+        producer.start();
+        consumer.start();
+        
+        producer.join();
+        consumer.join();
+        
+        System.out.println("\nFinal queue: " + queue);
+    }
+}
+```
+
+#### LinkedBlockingQueue
+
+```java
+import java.util.concurrent.*;
+import java.util.*;
+
+public class LinkedBlockingQueueDemo {
+    public static void main(String[] args) throws InterruptedException {
+        // Optionally bounded queue (unbounded by default)
+        BlockingQueue<Integer> queue = new LinkedBlockingQueue<>(5);
+        
+        System.out.println("=== LinkedBlockingQueue Demo ===\n");
+        
+        // Producer-Consumer example
+        Thread producer = new Thread(() -> {
+            try {
+                for (int i = 1; i <= 10; i++) {
+                    queue.put(i);
+                    System.out.println("Produced: " + i + " | Queue size: " + queue.size());
+                    Thread.sleep(100);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        
+        Thread consumer = new Thread(() -> {
+            try {
+                Thread.sleep(500);  // Start consuming after delay
+                for (int i = 0; i < 10; i++) {
+                    Integer value = queue.take();
+                    System.out.println("Consumed: " + value + " | Queue size: " + queue.size());
+                    Thread.sleep(200);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        
+        producer.start();
+        consumer.start();
+        
+        producer.join();
+        consumer.join();
+        
+        System.out.println("\nAll items processed");
+    }
+}
+```
+
+#### PriorityBlockingQueue
+
+```java
+import java.util.concurrent.*;
+import java.util.*;
+
+public class PriorityBlockingQueueDemo {
+    static class Job implements Comparable<Job> {
+        String name;
+        int priority;
+        
+        Job(String name, int priority) {
+            this.name = name;
+            this.priority = priority;
+        }
+        
+        @Override
+        public int compareTo(Job other) {
+            return Integer.compare(this.priority, other.priority);
+        }
+        
+        @Override
+        public String toString() {
+            return name + "(p=" + priority + ")";
+        }
+    }
+    
+    public static void main(String[] args) throws InterruptedException {
+        BlockingQueue<Job> jobQueue = new PriorityBlockingQueue<>();
+        
+        System.out.println("=== PriorityBlockingQueue Demo ===\n");
+        
+        // Add jobs with different priorities
+        jobQueue.put(new Job("Task-A", 3));
+        jobQueue.put(new Job("Task-B", 1));
+        jobQueue.put(new Job("Task-C", 2));
+        jobQueue.put(new Job("Task-D", 1));
+        
+        System.out.println("Jobs added to queue\n");
+        
+        // Process jobs by priority
+        System.out.println("Processing jobs by priority:");
+        while (!jobQueue.isEmpty()) {
+            Job job = jobQueue.take();
+            System.out.println("Processing: " + job);
+        }
+    }
+}
+```
+
+**Output:**
+```
+=== PriorityBlockingQueue Demo ===
+
+Jobs added to queue
+
+Processing jobs by priority:
+Processing: Task-B(p=1)
+Processing: Task-D(p=1)
+Processing: Task-C(p=2)
+Processing: Task-A(p=3)
+```
+
+#### Producer-Consumer Pattern
+
+```java
+import java.util.concurrent.*;
+
+public class ProducerConsumerBlockingQueue {
+    private static final int BUFFER_SIZE = 10;
+    
+    static class Producer implements Runnable {
+        private final BlockingQueue<Integer> queue;
+        private final int id;
+        
+        Producer(BlockingQueue<Integer> queue, int id) {
+            this.queue = queue;
+            this.id = id;
+        }
+        
+        @Override
+        public void run() {
+            try {
+                for (int i = 0; i < 5; i++) {
+                    int value = id * 100 + i;
+                    queue.put(value);
+                    System.out.println("Producer-" + id + " produced: " + value);
+                    Thread.sleep(100);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+    
+    static class Consumer implements Runnable {
+        private final BlockingQueue<Integer> queue;
+        private final int id;
+        
+        Consumer(BlockingQueue<Integer> queue, int id) {
+            this.queue = queue;
+            this.id = id;
+        }
+        
+        @Override
+        public void run() {
+            try {
+                while (true) {
+                    Integer value = queue.poll(2, TimeUnit.SECONDS);
+                    if (value == null) break;  // Timeout - no more items
+                    
+                    System.out.println("Consumer-" + id + " consumed: " + value);
+                    Thread.sleep(150);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+    
+    public static void main(String[] args) throws InterruptedException {
+        BlockingQueue<Integer> queue = new ArrayBlockingQueue<>(BUFFER_SIZE);
+        
+        System.out.println("=== Producer-Consumer Pattern ===\n");
+        
+        // Create producers and consumers
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+        
+        // 2 producers
+        executor.submit(new Producer(queue, 1));
+        executor.submit(new Producer(queue, 2));
+        
+        // 2 consumers
+        executor.submit(new Consumer(queue, 1));
+        executor.submit(new Consumer(queue, 2));
+        
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.SECONDS);
+        
+        System.out.println("\nAll done!");
+    }
+}
+```
+
+---
+
+### Queue Performance Comparison
+
+#### Performance Characteristics
+
+| Implementation | add/offer | remove/poll | peek | Access | Thread-Safe |
+|---------------|-----------|-------------|------|--------|-------------|
+| **LinkedList** | O(1) | O(1) | O(1) | O(n) | No |
+| **ArrayDeque** | O(1)* | O(1) | O(1) | Not supported | No |
+| **PriorityQueue** | O(log n) | O(log n) | O(1) | Not supported | No |
+| **ArrayBlockingQueue** | O(1) | O(1) | O(1) | Not supported | Yes |
+| **LinkedBlockingQueue** | O(1) | O(1) | O(1) | Not supported | Yes |
+| **PriorityBlockingQueue** | O(log n) | O(log n) | O(1) | Not supported | Yes |
+
+*Amortized due to resizing
+
+#### Benchmark
+
+```java
+import java.util.*;
+import java.util.concurrent.*;
+
+public class QueuePerformanceBenchmark {
+    private static final int OPERATIONS = 100000;
+    
+    public static void main(String[] args) {
+        System.out.println("=== Queue Performance Comparison ===");
+        System.out.println("Operations: " + OPERATIONS + "\n");
+        
+        benchmarkQueue(new LinkedList<>(), "LinkedList");
+        benchmarkQueue(new ArrayDeque<>(), "ArrayDeque");
+        benchmarkQueue(new PriorityQueue<>(), "PriorityQueue");
+        benchmarkQueue(new ArrayBlockingQueue<>(OPERATIONS), "ArrayBlockingQueue");
+        benchmarkQueue(new LinkedBlockingQueue<>(), "LinkedBlockingQueue");
+    }
+    
+    private static void benchmarkQueue(Queue<Integer> queue, String name) {
+        System.out.println("--- " + name + " ---");
+        
+        // Add operations
+        long start = System.nanoTime();
+        for (int i = 0; i < OPERATIONS; i++) {
+            queue.offer(i);
+        }
+        double addTime = (System.nanoTime() - start) / 1_000_000.0;
+        
+        // Poll operations
+        start = System.nanoTime();
+        while (!queue.isEmpty()) {
+            queue.poll();
+        }
+        double pollTime = (System.nanoTime() - start) / 1_000_000.0;
+        
+        System.out.printf("Add:  %.2f ms%n", addTime);
+        System.out.printf("Poll: %.2f ms%n", pollTime);
+        System.out.printf("Total: %.2f ms%n%n", addTime + pollTime);
+    }
+}
+```
+
+#### Selection Guide
+
+```java
+public class QueueSelectionGuide {
+    public static void main(String[] args) {
+        System.out.println("=== Queue Selection Guide ===\n");
+        
+        System.out.println("Use LinkedList (as Queue) when:");
+        System.out.println("✅ Need FIFO queue");
+        System.out.println("✅ Need null elements");
+        System.out.println("✅ Simple, general-purpose queue");
+        
+        System.out.println("\nUse ArrayDeque when:");
+        System.out.println("✅ Need stack or deque operations");
+        System.out.println("✅ Want best performance");
+        System.out.println("✅ Don't need null elements");
+        System.out.println("✅ Memory efficiency matters");
+        
+        System.out.println("\nUse PriorityQueue when:");
+        System.out.println("✅ Need priority-based processing");
+        System.out.println("✅ Elements have natural/custom ordering");
+        System.out.println("✅ Implementing heap-based algorithms");
+        
+        System.out.println("\nUse ArrayBlockingQueue when:");
+        System.out.println("✅ Need thread-safe bounded queue");
+        System.out.println("✅ Implementing producer-consumer");
+        System.out.println("✅ Want predictable capacity");
+        
+        System.out.println("\nUse LinkedBlockingQueue when:");
+        System.out.println("✅ Need thread-safe queue");
+        System.out.println("✅ Better throughput than ArrayBlockingQueue");
+        System.out.println("✅ Optional capacity limit");
+        
+        System.out.println("\nUse PriorityBlockingQueue when:");
+        System.out.println("✅ Need thread-safe priority queue");
+        System.out.println("✅ Unbounded capacity OK");
+        System.out.println("✅ Priority-based task scheduling");
+    }
+}
+```
+
+---
+
+## Part V - Practice & Mastery
+
+### Practice Problems
+
+#### Problem 1: LRU Cache (Medium)
+
+Design and implement a data structure for Least Recently Used (LRU) cache.
+
+```java
+import java.util.*;
+
+class LRUCache extends LinkedHashMap<Integer, Integer> {
+    private final int capacity;
+    
+    public LRUCache(int capacity) {
+        super(capacity, 0.75f, true);
+        this.capacity = capacity;
+    }
+    
+    public int get(int key) {
+        return super.getOrDefault(key, -1);
+    }
+    
+    public void put(int key, int value) {
+        super.put(key, value);
+    }
+    
+    @Override
+    protected boolean removeEldestEntry(Map.Entry<Integer, Integer> eldest) {
+        return size() > capacity;
+    }
+    
+    public static void main(String[] args) {
+        LRUCache cache = new LRUCache(2);
+        
+        cache.put(1, 1);
+        cache.put(2, 2);
+        System.out.println(cache.get(1));       // returns 1
+        cache.put(3, 3);                        // evicts key 2
+        System.out.println(cache.get(2));       // returns -1 (not found)
+        cache.put(4, 4);                        // evicts key 1
+        System.out.println(cache.get(1));       // returns -1 (not found)
+        System.out.println(cache.get(3));       // returns 3
+        System.out.println(cache.get(4));       // returns 4
+    }
+}
+```
+
+#### Problem 2: Group Anagrams (Medium)
+
+Given an array of strings, group anagrams together.
+
+```java
+import java.util.*;
+
+public class GroupAnagrams {
+    public static List<List<String>> groupAnagrams(String[] strs) {
+        Map<String, List<String>> map = new HashMap<>();
+        
+        for (String str : strs) {
+            char[] chars = str.toCharArray();
+            Arrays.sort(chars);
+            String key = new String(chars);
+            
+            map.computeIfAbsent(key, k -> new ArrayList<>()).add(str);
+        }
+        
+        return new ArrayList<>(map.values());
+    }
+    
+    public static void main(String[] args) {
+        String[] strs = {"eat", "tea", "tan", "ate", "nat", "bat"};
+        List<List<String>> result = groupAnagrams(strs);
+        System.out.println(result);
+        // Output: [[eat, tea, ate], [tan, nat], [bat]]
+    }
+}
+```
+
+#### Problem 3: Top K Frequent Elements (Medium)
+
+Find the k most frequent elements in an array.
+
+```java
+import java.util.*;
+
+public class TopKFrequent {
+    public static int[] topKFrequent(int[] nums, int k) {
+        // Count frequencies
+        Map<Integer, Integer> freqMap = new HashMap<>();
+        for (int num : nums) {
+            freqMap.merge(num, 1, Integer::sum);
+        }
+        
+        // Use min heap of size k
+        PriorityQueue<Map.Entry<Integer, Integer>> minHeap = 
+            new PriorityQueue<>(Comparator.comparingInt(Map.Entry::getValue));
+        
+        for (Map.Entry<Integer, Integer> entry : freqMap.entrySet()) {
+            minHeap.offer(entry);
+            if (minHeap.size() > k) {
+                minHeap.poll();
+            }
+        }
+        
+        // Extract results
+        int[] result = new int[k];
+        for (int i = k - 1; i >= 0; i--) {
+            result[i] = minHeap.poll().getKey();
+        }
+        
+        return result;
+    }
+    
+    public static void main(String[] args) {
+        int[] nums = {1, 1, 1, 2, 2, 3, 3, 3, 3};
+        int k = 2;
+        int[] result = topKFrequent(nums, k);
+        System.out.println("Top " + k + " frequent: " + Arrays.toString(result));
+        // Output: [3, 1] or [1, 3]
+    }
+}
+```
+
+#### Problem 4: Valid Parentheses (Easy)
+
+Determine if a string of parentheses is valid.
+
+```java
+import java.util.*;
+
+public class ValidParentheses {
+    public static boolean isValid(String s) {
+        Map<Character, Character> pairs = Map.of(
+            ')', '(',
+            ']', '[',
+            '}', '{'
+        );
+        
+        Deque<Character> stack = new ArrayDeque<>();
+        
+        for (char c : s.toCharArray()) {
+            if (pairs.containsValue(c)) {
+                // Opening bracket
+                stack.push(c);
+            } else if (pairs.containsKey(c)) {
+                // Closing bracket
+                if (stack.isEmpty() || stack.pop() != pairs.get(c)) {
+                    return false;
+                }
+            }
+        }
+        
+        return stack.isEmpty();
+    }
+    
+    public static void main(String[] args) {
+        System.out.println(isValid("()"));        // true
+        System.out.println(isValid("()[]{}"));    // true
+        System.out.println(isValid("(]"));        // false
+        System.out.println(isValid("([)]"));      // false
+        System.out.println(isValid("{[]}"));      // true
+    }
+}
+```
+
+#### Problem 5: Design HashMap (Easy)
+
+Design a HashMap without using built-in hash table libraries.
+
+```java
+import java.util.*;
+
+class MyHashMap {
+    private static final int SIZE = 1000;
+    private List<List<int[]>> buckets;
+    
+    public MyHashMap() {
+        buckets = new ArrayList<>(SIZE);
+        for (int i = 0; i < SIZE; i++) {
+            buckets.add(new LinkedList<>());
+        }
+    }
+    
+    private int hash(int key) {
+        return key % SIZE;
+    }
+    
+    public void put(int key, int value) {
+        int bucket = hash(key);
+        List<int[]> list = buckets.get(bucket);
+        
+        for (int[] pair : list) {
+            if (pair[0] == key) {
+                pair[1] = value;
+                return;
+            }
+        }
+        
+        list.add(new int[]{key, value});
+    }
+    
+    public int get(int key) {
+        int bucket = hash(key);
+        List<int[]> list = buckets.get(bucket);
+        
+        for (int[] pair : list) {
+            if (pair[0] == key) {
+                return pair[1];
+            }
+        }
+        
+        return -1;
+    }
+    
+    public void remove(int key) {
+        int bucket = hash(key);
+        List<int[]> list = buckets.get(bucket);
+        
+        list.removeIf(pair -> pair[0] == key);
+    }
+    
+    public static void main(String[] args) {
+        MyHashMap map = new MyHashMap();
+        map.put(1, 1);
+        map.put(2, 2);
+        System.out.println(map.get(1));    // 1
+        System.out.println(map.get(3));    // -1
+        map.put(2, 1);                     // update
+        System.out.println(map.get(2));    // 1
+        map.remove(2);
+        System.out.println(map.get(2));    // -1
+    }
+}
+```
+
+#### Problem 6: Word Frequency Counter (Easy)
+
+Count word frequencies in a text.
+
+```java
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class WordFrequency {
+    public static Map<String, Integer> countWords(String text) {
+        Map<String, Integer> freqMap = new HashMap<>();
+        
+        String[] words = text.toLowerCase()
+                            .replaceAll("[^a-z\\s]", "")
+                            .split("\\s+");
+        
+        for (String word : words) {
+            if (!word.isEmpty()) {
+                freqMap.merge(word, 1, Integer::sum);
+            }
+        }
+        
+        return freqMap;
+    }
+    
+    public static List<Map.Entry<String, Integer>> topKWords(
+            Map<String, Integer> freqMap, int k) {
+        return freqMap.entrySet().stream()
+            .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+            .limit(k)
+            .collect(Collectors.toList());
+    }
+    
+    public static void main(String[] args) {
+        String text = "The quick brown fox jumps over the lazy dog. " +
+                     "The dog was really lazy.";
+        
+        Map<String, Integer> frequencies = countWords(text);
+        System.out.println("All frequencies: " + frequencies);
+        
+        List<Map.Entry<String, Integer>> top3 = topKWords(frequencies, 3);
+        System.out.println("\nTop 3 words:");
+        top3.forEach(e -> System.out.println(e.getKey() + ": " + e.getValue()));
+    }
+}
+```
+
+#### Problem 7: Sliding Window Maximum (Hard)
+
+Find the maximum in each sliding window of size k.
+
+```java
+import java.util.*;
+
+public class SlidingWindowMaximum {
+    public static int[] maxSlidingWindow(int[] nums, int k) {
+        if (nums == null || nums.length == 0) return new int[0];
+        
+        int[] result = new int[nums.length - k + 1];
+        Deque<Integer> deque = new ArrayDeque<>();  // Stores indices
+        
+        for (int i = 0; i < nums.length; i++) {
+            // Remove indices outside window
+            while (!deque.isEmpty() && deque.peekFirst() < i - k + 1) {
+                deque.pollFirst();
+            }
+            
+            // Remove smaller elements (they'll never be max)
+            while (!deque.isEmpty() && nums[deque.peekLast()] < nums[i]) {
+                deque.pollLast();
+            }
+            
+            deque.offerLast(i);
+            
+            // Add to result
+            if (i >= k - 1) {
+                result[i - k + 1] = nums[deque.peekFirst()];
+            }
+        }
+        
+        return result;
+    }
+    
+    public static void main(String[] args) {
+        int[] nums = {1, 3, -1, -3, 5, 3, 6, 7};
+        int k = 3;
+        int[] result = maxSlidingWindow(nums, k);
+        System.out.println("Input: " + Arrays.toString(nums));
+        System.out.println("Window size: " + k);
+        System.out.println("Maximums: " + Arrays.toString(result));
+        // Output: [3, 3, 5, 5, 6, 7]
+    }
+}
+```
+
+#### Problem 8: Task Scheduler (Medium)
+
+Schedule tasks with cooldown periods.
+
+```java
+import java.util.*;
+
+public class TaskScheduler {
+    public static int leastInterval(char[] tasks, int n) {
+        // Count task frequencies
+        Map<Character, Integer> freqMap = new HashMap<>();
+        for (char task : tasks) {
+            freqMap.merge(task, 1, Integer::sum);
+        }
+        
+        // Use max heap for frequencies
+        PriorityQueue<Integer> maxHeap = 
+            new PriorityQueue<>(Comparator.reverseOrder());
+        maxHeap.addAll(freqMap.values());
+        
+        int cycles = 0;
+        
+        while (!maxHeap.isEmpty()) {
+            List<Integer> temp = new ArrayList<>();
+            
+            // Execute tasks in this cycle
+            for (int i = 0; i <= n; i++) {
+                if (!maxHeap.isEmpty()) {
+                    int freq = maxHeap.poll();
+                    if (freq > 1) {
+                        temp.add(freq - 1);
+                    }
+                }
+            }
+            
+            // Add back remaining tasks
+            maxHeap.addAll(temp);
+            
+            // Count this cycle
+            cycles += maxHeap.isEmpty() ? temp.size() + 1 : n + 1;
+        }
+        
+        return cycles;
+    }
+    
+    public static void main(String[] args) {
+        char[] tasks = {'A', 'A', 'A', 'B', 'B', 'B'};
+        int n = 2;
+        int result = leastInterval(tasks, n);
+        System.out.println("Tasks: " + Arrays.toString(tasks));
+        System.out.println("Cooldown: " + n);
+        System.out.println("Minimum intervals: " + result);
+        // Output: 8 (A -> B -> idle -> A -> B -> idle -> A -> B)
+    }
+}
+```
+
+#### Problem 9: Design Twitter (Medium)
+
+Design a simplified Twitter with core features.
+
+```java
+import java.util.*;
+
+class Twitter {
+    private static int timestamp = 0;
+    
+    class Tweet {
+        int id;
+        int time;
+        
+        Tweet(int id) {
+            this.id = id;
+            this.time = timestamp++;
+        }
+    }
+    
+    private Map<Integer, Set<Integer>> following;  // userId -> followees
+    private Map<Integer, List<Tweet>> tweets;      // userId -> tweets
+    
+    public Twitter() {
+        following = new HashMap<>();
+        tweets = new HashMap<>();
+    }
+    
+    public void postTweet(int userId, int tweetId) {
+        tweets.computeIfAbsent(userId, k -> new ArrayList<>())
+              .add(new Tweet(tweetId));
+    }
+    
+    public List<Integer> getNewsFeed(int userId) {
+        PriorityQueue<Tweet> maxHeap = new PriorityQueue<>(
+            (a, b) -> Integer.compare(b.time, a.time)
+        );
+        
+        // Add user's own tweets
+        if (tweets.containsKey(userId)) {
+            maxHeap.addAll(tweets.get(userId));
+        }
+        
+        // Add followees' tweets
+        Set<Integer> followees = following.getOrDefault(userId, new HashSet<>());
+        for (int followeeId : followees) {
+            if (tweets.containsKey(followeeId)) {
+                maxHeap.addAll(tweets.get(followeeId));
+            }
+        }
+        
+        // Get top 10
+        List<Integer> feed = new ArrayList<>();
+        for (int i = 0; i < 10 && !maxHeap.isEmpty(); i++) {
+            feed.add(maxHeap.poll().id);
+        }
+        
+        return feed;
+    }
+    
+    public void follow(int followerId, int followeeId) {
+        if (followerId != followeeId) {
+            following.computeIfAbsent(followerId, k -> new HashSet<>())
+                     .add(followeeId);
+        }
+    }
+    
+    public void unfollow(int followerId, int followeeId) {
+        Set<Integer> followees = following.get(followerId);
+        if (followees != null) {
+            followees.remove(followeeId);
+        }
+    }
+    
+    public static void main(String[] args) {
+        Twitter twitter = new Twitter();
+        twitter.postTweet(1, 5);
+        System.out.println(twitter.getNewsFeed(1));  // [5]
+        twitter.follow(1, 2);
+        twitter.postTweet(2, 6);
+        System.out.println(twitter.getNewsFeed(1));  // [6, 5]
+        twitter.unfollow(1, 2);
+        System.out.println(twitter.getNewsFeed(1));  // [5]
+    }
+}
+```
+
+#### Problem 10: Implement Stack using Queues (Easy)
+
+```java
+import java.util.*;
+
+class MyStack {
+    private Queue<Integer> queue;
+    
+    public MyStack() {
+        queue = new LinkedList<>();
+    }
+    
+    public void push(int x) {
+        queue.offer(x);
+        
+        // Rotate queue to make newest element at front
+        int size = queue.size();
+        for (int i = 0; i < size - 1; i++) {
+            queue.offer(queue.poll());
+        }
+    }
+    
+    public int pop() {
+        return queue.poll();
+    }
+    
+    public int top() {
+        return queue.peek();
+    }
+    
+    public boolean empty() {
+        return queue.isEmpty();
+    }
+    
+    public static void main(String[] args) {
+        MyStack stack = new MyStack();
+        stack.push(1);
+        stack.push(2);
+        System.out.println(stack.top());    // 2
+        System.out.println(stack.pop());    // 2
+        System.out.println(stack.empty());  // false
+    }
+}
+```
+
+---
+
+### Interview Questions
+
+#### Q1: Explain HashMap internal working
+
+**Answer:**
+HashMap uses an array of buckets where each bucket can hold a linked list (or tree in Java 8+) of entries. The process works as follows:
+
+1. **Hashing:** When you put a key-value pair, HashMap calculates the hash code of the key using `hashCode()` method
+2. **Bucket Selection:** The hash code is used to determine which bucket (array index) to use: `index = hash & (length - 1)`
+3. **Collision Handling:**
+   - Java 7: Uses linked lists for collisions (O(n) worst case)
+   - Java 8+: Converts to Red-Black tree after 8 collisions in same bucket (O(log n) worst case)
+4. **Retrieval:** When getting a value, the same hash calculation finds the bucket, then `equals()` is used to find the exact entry
+
+**Key Points:**
+- Default capacity: 16
+- Default load factor: 0.75
+- Resizes when size > capacity × load factor
+- Not thread-safe (use ConcurrentHashMap for concurrency)
+
+#### Q2: HashMap vs TreeMap vs LinkedHashMap
+
+**Answer:**
+
+| Feature | HashMap | TreeMap | LinkedHashMap |
+|---------|---------|---------|---------------|
+| **Ordering** | No order | Sorted by keys | Insertion/access order |
+| **Performance** | O(1) average | O(log n) | O(1) average |
+| **Null keys** | One allowed | Not allowed | One allowed |
+| **Implementation** | Hash table | Red-Black tree | Hash table + linked list |
+| **When to use** | General purpose, fast | Need sorted keys | Need predictable order, LRU cache |
+
+#### Q3: How does ConcurrentHashMap achieve thread safety?
+
+**Answer:**
+
+**Java 7:** Uses segment-based locking
+- Map divided into 16 segments by default
+- Each segment has its own lock
+- Multiple threads can write to different segments concurrently
+
+**Java 8+:** Uses CAS (Compare-And-Swap) and synchronized blocks
+- No segments - single array of nodes
+- Lock-free reads using volatile variables
+- Synchronized blocks only for bucket modifications
+- Better scalability with more fine-grained locking
+
+**Key Benefits:**
+- Allows concurrent reads without blocking
+- Multiple threads can write to different buckets
+- Better performance than Hashtable or synchronized HashMap
+
+#### Q4: What is the difference between fail-fast and fail-safe iterators?
+
+**Answer:**
+
+**Fail-Fast Iterators:**
+- Throw `ConcurrentModificationException` if collection modified during iteration
+- Used by: HashMap, ArrayList, HashSet
+- Check `modCount` to detect structural modifications
+- Cannot be used with concurrent modifications
+
+**Fail-Safe Iterators:**
+- Work on a copy of the collection
+- Don't throw exceptions on concurrent modification
+- Used by: ConcurrentHashMap, CopyOnWriteArrayList
+- May not reflect latest state of collection
+
+```java
+// Fail-fast example
+Map<String, Integer> map = new HashMap<>();
+map.put("A", 1);
+map.put("B", 2);
+
+for (String key : map.keySet()) {
+    map.put("C", 3);  // Throws ConcurrentModificationException
+}
+
+// Fail-safe example
+ConcurrentHashMap<String, Integer> concurrentMap = new ConcurrentHashMap<>();
+concurrentMap.put("A", 1);
+concurrentMap.put("B", 2);
+
+for (String key : concurrentMap.keySet()) {
+    concurrentMap.put("C", 3);  // Works fine
+}
+```
+
+#### Q5: Explain the difference between poll() and remove() in Queue
+
+**Answer:**
+
+Both methods retrieve and remove the head of the queue, but differ in error handling:
+
+| Method | Returns on Empty Queue | Use When |
+|--------|----------------------|----------|
+| **remove()** | Throws NoSuchElementException | You expect queue to have elements |
+| **poll()** | Returns null | You want to handle empty queue gracefully |
+
+Similarly:
+- **element()** vs **peek()**: Both examine head without removing
+  - element() throws exception on empty
+  - peek() returns null on empty
+
+```java
+Queue<String> queue = new LinkedList<>();
+
+// poll() - safe for empty queue
+String item1 = queue.poll();  // Returns null, no exception
+
+// remove() - throws if empty
+try {
+    String item2 = queue.remove();  // Throws NoSuchElementException
+} catch (NoSuchElementException e) {
+    System.out.println("Queue is empty");
+}
+```
+
+#### Q6: When would you use a PriorityQueue over a TreeSet?
+
+**Answer:**
+
+Use **PriorityQueue** when:
+- Need to repeatedly extract minimum/maximum element
+- Elements can have duplicates
+- Don't need all elements sorted at once
+- Processing elements by priority (e.g., task scheduling)
+- Time: O(log n) for add/remove, O(1) for peek
+
+Use **TreeSet** when:
+- Need unique elements only
+- Need all elements sorted
+- Need operations like ceiling(), floor(), range queries
+- Need Set operations (union, intersection)
+- Time: O(log n) for all operations
+
+```java
+// PriorityQueue - allows duplicates, focused on min element
+PriorityQueue<Integer> pq = new PriorityQueue<>();
+pq.offer(5);
+pq.offer(5);  // Duplicate allowed
+System.out.println(pq.poll());  // Gets minimum
+
+// TreeSet - unique elements, maintains sorted order
+TreeSet<Integer> ts = new TreeSet<>();
+ts.add(5);
+ts.add(5);  // Duplicate ignored
+System.out.println(ts.first());  // Gets minimum
+```
+
+#### Q7: How does LinkedHashMap maintain insertion order?
+
+**Answer:**
+
+LinkedHashMap extends HashMap and adds a doubly-linked list running through all entries:
+
+**Structure:**
+- Inherits HashMap's hash table for fast lookups
+- Maintains additional before/after references in each entry
+- Forms a doubly-linked list connecting all entries
+
+**Two Ordering Modes:**
+1. **Insertion-order (default):** Order entries were added
+2. **Access-order:** Order entries were last accessed (useful for LRU caches)
+
+**Memory Cost:**
+- Additional 16 bytes per entry (before + after pointers)
+- Slightly slower than HashMap due to link maintenance
+
+**Implementation:**
+```java
+// Entry in LinkedHashMap
+static class Entry<K,V> extends HashMap.Node<K,V> {
+    Entry<K,V> before, after;  // Doubly-linked list pointers
+}
+
+// Access-order mode for LRU cache
+LinkedHashMap<K, V> lru = new LinkedHashMap<>(16, 0.75f, true) {
+    protected boolean removeEldestEntry(Map.Entry<K,V> eldest) {
+        return size() > MAX_ENTRIES;
+    }
+};
+```
+
+#### Q8: What are the main differences between ArrayDeque and LinkedList?
+
+**Answer:**
+
+| Feature | ArrayDeque | LinkedList |
+|---------|------------|------------|
+| **Implementation** | Circular array | Doubly-linked list |
+| **Memory** | More efficient (no node overhead) | Higher overhead (24 bytes/node) |
+| **Performance** | Better for most operations | Better for removal during iteration |
+| **Null elements** | Not allowed | Allowed |
+| **Random access** | Not supported | O(n) via get(index) |
+| **Resizing** | May resize (copy array) | No resizing needed |
+| **Cache performance** | Better (array locality) | Worse (scattered nodes) |
+
+**When to use:**
+- **ArrayDeque:** General-purpose queue/stack (faster, less memory)
+- **LinkedList:** When you need nulls or frequent iterator.remove()
+
+```java
+// ArrayDeque - better performance
+Deque<String> arrayDeque = new ArrayDeque<>();
+arrayDeque.offer("A");
+// arrayDeque.offer(null);  // NullPointerException
+
+// LinkedList - more flexible
+Deque<String> linkedList = new LinkedList<>();
+linkedList.offer("A");
+linkedList.offer(null);  // Allowed
+```
+
+#### Q9: Explain the BlockingQueue interface and its use cases
+
+**Answer:**
+
+BlockingQueue extends Queue with blocking operations:
+
+**Key Methods:**
+- **put(e):** Blocks if queue is full (bounded queues)
+- **take():** Blocks if queue is empty
+- **offer(e, timeout):** Wait up to timeout if full
+- **poll(timeout):** Wait up to timeout if empty
+
+**Common Implementations:**
+
+1. **ArrayBlockingQueue**
+   - Fixed capacity
+   - Fair/unfair locking
+   - Best for: Bounded producer-consumer
+
+2. **LinkedBlockingQueue**
+   - Optional capacity
+   - Better throughput
+   - Best for: High-volume pipelines
+
+3. **PriorityBlockingQueue**
+   - Unbounded
+   - Priority ordering
+   - Best for: Task scheduling by priority
+
+4. **SynchronousQueue**
+   - No capacity (direct handoff)
+   - Best for: Direct thread-to-thread transfer
+
+**Use Cases:**
+- Producer-Consumer pattern
+- Thread pools (Executor framework uses BlockingQueue)
+- Rate limiting and throttling
+- Work queues and task scheduling
+
+```java
+BlockingQueue<Task> queue = new ArrayBlockingQueue<>(100);
+
+// Producer thread
+new Thread(() -> {
+    try {
+        queue.put(new Task());  // Blocks if full
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+    }
+}).start();
+
+// Consumer thread
+new Thread(() -> {
+    try {
+        Task task = queue.take();  // Blocks if empty
+        task.process();
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+    }
+}).start();
+```
+
+#### Q10: How do you implement a thread-safe cache in Java?
+
+**Answer:**
+
+Several approaches with different trade-offs:
+
+**Option 1: ConcurrentHashMap (Best for most cases)**
+```java
+public class ThreadSafeCache<K, V> {
+    private final ConcurrentHashMap<K, V> cache = new ConcurrentHashMap<>();
+    private final Function<K, V> loader;
+    
+    public ThreadSafeCache(Function<K, V> loader) {
+        this.loader = loader;
+    }
+    
+    public V get(K key) {
+        return cache.computeIfAbsent(key, loader);
+    }
+}
+```
+
+**Option 2: LinkedHashMap with LRU (For size-bounded cache)**
+```java
+public class LRUCache<K, V> extends LinkedHashMap<K, V> {
+    private final int maxSize;
+    
+    public LRUCache(int maxSize) {
+        super(maxSize, 0.75f, true);
+        this.maxSize = maxSize;
+    }
+    
+    @Override
+    protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+        return size() > maxSize;
+    }
+}
+
+// Thread-safe wrapper
+Map<K, V> lruCache = Collections.synchronizedMap(new LRUCache<>(100));
+```
+
+**Option 3: Guava Cache (Production-ready)**
+```java
+// Guava provides comprehensive caching features
+LoadingCache<Key, Value> cache = CacheBuilder.newBuilder()
+    .maximumSize(1000)
+    .expireAfterWrite(10, TimeUnit.MINUTES)
+    .build(new CacheLoader<Key, Value>() {
+        public Value load(Key key) {
+            return createValue(key);
+        }
+    });
+```
+
+**Key Considerations:**
+- Eviction policy (LRU, LFU, time-based)
+- Thread safety (ConcurrentHashMap vs synchronized)
+- Memory limits
+- Expiration strategy
+- Cache statistics and monitoring
+
+---
+
+### Summary and Best Practices
+
+#### Key Takeaways
+
+**Maps:**
+1. **HashMap** is the default choice for key-value storage
+2. Use **LinkedHashMap** when order matters or for LRU caches
+3. Use **TreeMap** when you need sorted keys or range queries
+4. Use **ConcurrentHashMap** for thread-safe high-performance concurrent access
+5. Always implement proper `hashCode()` and `equals()` for custom keys
+
+**Queues:**
+1. **ArrayDeque** is the best general-purpose queue/stack
+2. Use **PriorityQueue** for priority-based processing
+3. Use **LinkedList** only when you need null elements or indexed access
+4. Use **BlockingQueue** implementations for producer-consumer patterns
+5. Choose appropriate BlockingQueue: bounded (ArrayBlockingQueue) vs unbounded (LinkedBlockingQueue)
+
+#### Performance Summary
+
+**Map Operations (Average Case):**
+- HashMap: O(1) get/put
+- TreeMap: O(log n) get/put
+- LinkedHashMap: O(1) get/put (slightly slower than HashMap)
+- ConcurrentHashMap: O(1) get/put with better concurrency
+
+**Queue Operations:**
+- ArrayDeque: O(1) add/remove from ends
+- PriorityQueue: O(log n) add/remove, O(1) peek
+- LinkedList: O(1) add/remove from ends
+- BlockingQueue implementations: Similar to non-blocking + synchronization overhead
+
+#### Best Practices Checklist
+
+**For Maps:**
+- ✅ Pre-size HashMap when size is known: `new HashMap<>((int)(size / 0.75f) + 1)`
+- ✅ Use immutable objects as keys (String, Integer, or custom immutable classes)
+- ✅ Override both `hashCode()` and `equals()` for custom keys
+- ✅ Use `entrySet()` for iteration instead of `keySet()` + get()
+- ✅ Use compute methods (`merge`, `computeIfAbsent`) for atomic updates
+- ✅ Prefer ConcurrentHashMap over synchronized HashMap for concurrency
+- ✅ Use EnumMap when keys are enum types
+
+**For Queues:**
+- ✅ Use ArrayDeque instead of Stack class
+- ✅ Choose ArrayDeque over LinkedList for general-purpose queues
+- ✅ Use PriorityQueue for priority-based processing
+- ✅ Use BlockingQueue for producer-consumer patterns
+- ✅ Handle InterruptedException properly in blocking operations
+- ✅ Consider capacity constraints for bounded queues
+- ✅ Use appropriate timeout values for timed blocking operations
+
+#### Common Pitfalls to Avoid
+
+❌ **Don't:**
+- Use mutable objects as HashMap keys
+- Modify keys after putting them in a HashMap
+- Use Hashtable (use HashMap or ConcurrentHashMap instead)
+- Use Vector or Stack (use ArrayList or ArrayDeque instead)
+- Ignore capacity planning for large collections
+- Use synchronized HashMap for high concurrency (use ConcurrentHashMap)
+- Forget to handle null returns from peek() and poll()
+- Use containsValue() frequently (O(n) operation)
+
+#### When to Use What: Quick Reference
+
+**Need a Map?**
+- Fast general-purpose → **HashMap**
+- Predictable iteration order → **LinkedHashMap**
+- Sorted keys → **TreeMap**
+- Thread-safe with high concurrency → **ConcurrentHashMap**
+- Enum keys → **EnumMap**
+- Memory-sensitive cache → **WeakHashMap**
+- LRU cache → **LinkedHashMap** with access-order
+
+**Need a Queue?**
+- General-purpose queue → **ArrayDeque**
+- Priority-based → **PriorityQueue**
+- Thread-safe bounded → **ArrayBlockingQueue**
+- Thread-safe unbounded → **LinkedBlockingQueue**
+- Thread-safe priority → **PriorityBlockingQueue**
+- Need null elements → **LinkedList**
+
+#### Final Thoughts
+
+The Java Collections Framework provides powerful, well-tested implementations for most use cases. Understanding:
+- Internal implementations (hash tables, trees, arrays)
+- Performance characteristics (time/space complexity)
+- Thread safety guarantees
+- Appropriate use cases
+
+...will help you choose the right collection and use it effectively.
+
+**Remember:**
+1. Choose the simplest collection that meets your needs
+2. Consider performance implications of your choice
+3. Think about thread safety requirements early
+4. Don't optimize prematurely - measure first
+5. Use the right tool for the job
+
+#### Further Learning
+
+- **Java Documentation:** Official JavaDocs for Collections Framework
+- **Effective Java (Joshua Bloch):** Items 28-31 on generics and collections
+- **Java Concurrency in Practice:** Chapters on concurrent collections
+- **Data Structures:** Study underlying algorithms (Red-Black trees, heaps, hash tables)
+
+---
+
+## Conclusion
+
+This comprehensive tutorial covered Maps and Queues in depth, from fundamentals to advanced concurrent patterns. You learned:
+
+- **Map implementations:** HashMap, LinkedHashMap, TreeMap, and their use cases
+- **Concurrent maps:** ConcurrentHashMap and thread-safe patterns
+- **Queue implementations:** PriorityQueue, ArrayDeque, BlockingQueue variants
+- **Real-world applications:** LRU caches, priority scheduling, producer-consumer
+- **Performance optimization:** Choosing the right collection, sizing strategies
+- **Best practices:** Common patterns and pitfalls to avoid
+
+With this knowledge, you're equipped to:
+- Choose appropriate collections for your use cases
+- Implement efficient, thread-safe data structures
+- Solve complex programming problems
+- Excel in technical interviews
+
+**Total Lines:** ~5,900+ (matching Part 1's comprehensive coverage)
+
+**Continue Learning:**
+- [Master Index](26_Collections_Master_Index.md) - Complete Collections Framework overview
+- [Part 1: Lists & Sets](26a_Collections_Part1_Lists_Sets.md) - Foundational collections
+- [Part 3: Advanced Patterns](26c_Collections_Part3_Advanced_Patterns.md) - Advanced topics
+
+---
+
+**Happy Coding! 🚀**
