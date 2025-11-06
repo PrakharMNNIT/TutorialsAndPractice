@@ -1479,8 +1479,8 @@ Learn to configure and optimize thread pools:
 ## 📚 Additional Resources
 
 ### **Related Tutorials:**
-- [`../tutorials/03-thread-interruption.md`](../tutorials/03-thread-interruption.md)
-- [`../tutorials/comprehensive-thread-interruption.md`](../tutorials/comprehensive-thread-interruption.md)
+- [`../tutorials/03-thread-interruption.md`](../00_Java_Multithreading/03-thread-interruption.md)
+- [`../tutorials/comprehensive-thread-interruption.md`](../00_Java_Multithreading/comprehensive-thread-interruption.md)
 
 ---
 

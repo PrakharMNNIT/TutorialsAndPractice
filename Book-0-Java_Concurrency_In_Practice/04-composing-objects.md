@@ -1824,8 +1824,8 @@ Explore Java's concurrent building blocks:
 - 🌐 [JCIP Annotations](http://jcip.net/annotations/doc/)
 
 ### **Related Tutorials:**
-- [`../tutorials/08-reentrant-lock-from-zero.md`](../tutorials/08-reentrant-lock-from-zero.md)
-- [`../tutorials/14-concurrent-collections-complete.md`](../tutorials/14-concurrent-collections-complete.md)
+- [`../tutorials/08-reentrant-lock-from-zero.md`](../00_Java_Multithreading/08-reentrant-lock-from-zero.md)
+- [`../tutorials/14-concurrent-collections-complete.md`](../00_Java_Multithreading/14-concurrent-collections-complete.md)
 
 ---
 

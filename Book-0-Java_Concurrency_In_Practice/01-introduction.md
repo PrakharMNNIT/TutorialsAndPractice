@@ -1395,9 +1395,9 @@ Understand visibility and publication:
 - 🌐 [JEP 444: Virtual Threads](https://openjdk.org/jeps/444)
 
 ### **Related Tutorials in This Repository:**
-- [`../tutorials/01-multithreading-fundamentals.md`](../tutorials/01-multithreading-fundamentals.md)
-- [`../tutorials/13-moores-law-and-multithreading.md`](../tutorials/13-moores-law-and-multithreading.md)
-- [`../tutorials/16-virtual-threads-revolution.md`](../tutorials/16-virtual-threads-revolution.md)
+- [`../tutorials/01-multithreading-fundamentals.md`](../00_Java_Multithreading/01-multithreading-fundamentals.md)
+- [`../tutorials/13-moores-law-and-multithreading.md`](../00_Java_Multithreading/13-moores-law-and-multithreading.md)
+- [`../tutorials/16-virtual-threads-revolution.md`](../00_Java_Multithreading/16-virtual-threads-revolution.md)
 
 ---
 

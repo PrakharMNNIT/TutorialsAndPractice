@@ -2011,7 +2011,7 @@ Learn to structure concurrent applications:
 - 🌐 [BlockingQueue Tutorial](https://docs.oracle.com/javase/tutorial/essential/concurrency/collections.html)
 
 ### **Related Tutorials:**
-- [`../tutorials/14-concurrent-collections-complete.md`](../tutorials/14-concurrent-collections-complete.md)
+- [`../tutorials/14-concurrent-collections-complete.md`](../00_Java_Multithreading/14-concurrent-collections-complete.md)
 
 ---
 

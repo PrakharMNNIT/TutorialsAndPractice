@@ -1982,9 +1982,9 @@ Learn to build thread-safe classes from components:
 - 🌐 [ThreadLocal](https://docs.oracle.com/javase/8/docs/api/java/lang/ThreadLocal.html)
 
 ### **Related Tutorials:**
-- [`../tutorials/05-quick-guide-to-volatile.md`](../tutorials/05-quick-guide-to-volatile.md)
-- [`../tutorials/06-FAQ-caching-volatile-synchronized.md`](../tutorials/06-FAQ-caching-volatile-synchronized.md)
-- [`../tutorials/18-threadlocal-context-management.md`](../tutorials/18-threadlocal-context-management.md)
+- [`../tutorials/05-quick-guide-to-volatile.md`](../00_Java_Multithreading/05-quick-guide-to-volatile.md)
+- [`../tutorials/06-FAQ-caching-volatile-synchronized.md`](../00_Java_Multithreading/06-FAQ-caching-volatile-synchronized.md)
+- [`../tutorials/18-threadlocal-context-management.md`](../00_Java_Multithreading/18-threadlocal-context-management.md)
 
 ---
 

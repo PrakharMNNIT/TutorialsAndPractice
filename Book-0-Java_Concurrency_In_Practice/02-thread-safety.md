@@ -2280,9 +2280,9 @@ Building thread-safe classes from components:
 - 🌐 [Atomic Variables](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/atomic/package-summary.html)
 
 ### **Related Tutorials:**
-- [`../tutorials/01-multithreading-fundamentals.md`](../tutorials/01-multithreading-fundamentals.md)
-- [`../tutorials/05-quick-guide-to-volatile.md`](../tutorials/05-quick-guide-to-volatile.md)
-- [`../tutorials/07-atomic-classes-deep-dive.md`](../tutorials/07-atomic-classes-deep-dive.md)
+- [`../tutorials/01-multithreading-fundamentals.md`](../00_Java_Multithreading/01-multithreading-fundamentals.md)
+- [`../tutorials/05-quick-guide-to-volatile.md`](../00_Java_Multithreading/05-quick-guide-to-volatile.md)
+- [`../tutorials/07-atomic-classes-deep-dive.md`](../00_Java_Multithreading/07-atomic-classes-deep-dive.md)
 
 ### **Books:**
 - 📖 "Java Concurrency in Practice" - Chapter 2

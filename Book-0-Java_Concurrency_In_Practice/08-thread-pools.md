@@ -1001,7 +1001,7 @@ Special considerations for GUI programming:
 - 🌐 [Executors](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/Executors.html)
 
 ### **Related Tutorials:**
-- [`../tutorials/17-forkjoin-parallel-algorithms.md`](../tutorials/17-forkjoin-parallel-algorithms.md)
+- [`../tutorials/17-forkjoin-parallel-algorithms.md`](../00_Java_Multithreading/17-forkjoin-parallel-algorithms.md)
 
 ---
 
